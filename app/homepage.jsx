@@ -3,7 +3,6 @@
 import { motion } from 'framer-motion'
 import { signIn, useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { useEffect } from 'react'
 import { 
   Zap, 
@@ -47,53 +46,25 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Navigation Header */}
-      <header className="border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      {/* Header */}
+      <header className="border-b border-border">
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
-            <motion.div 
-              className="flex items-center gap-2"
+            <motion.h1 
+              className="text-2xl font-bold gradient-text"
               whileHover={{ scale: 1.05 }}
             >
-              <div className="w-8 h-8 rounded bg-gradient-to-r from-primary to-secondary flex items-center justify-center">
-                <Zap className="w-5 h-5 text-black" />
-              </div>
-              <h1 className="text-2xl font-bold gradient-text">
-                CalistheniX
-              </h1>
-            </motion.div>
+              CalistheniX
+            </motion.h1>
             
-            {/* Desktop Navigation */}
-            <nav className="hidden md:flex items-center gap-8">
-              <a href="#features" className="text-muted-foreground hover:text-primary transition-colors">
-                Features
-              </a>
-              <a href="#skills" className="text-muted-foreground hover:text-primary transition-colors">
-                Skills
-              </a>
-              <a href="#about" className="text-muted-foreground hover:text-primary transition-colors">
-                About
-              </a>
-            </nav>
-
-            {/* Auth Buttons */}
-            <div className="flex items-center gap-3">
-              <Button 
-                variant="ghost" 
-                onClick={() => signIn()}
-                className="hidden sm:flex items-center gap-2"
-              >
-                Sign In
-              </Button>
-              <Button 
-                variant="cyber"
-                onClick={() => signIn('google')}
-                className="flex items-center gap-2"
-              >
-                <LogIn className="w-4 h-4" />
-                Get Started
-              </Button>
-            </div>
+            <Button 
+              variant="outline" 
+              onClick={() => signIn()}
+              className="flex items-center gap-2"
+            >
+              <LogIn className="w-4 h-4" />
+              Sign In
+            </Button>
           </div>
         </div>
       </header>
@@ -137,26 +108,14 @@ export default function Home() {
               size="xl"
               onClick={() => signIn()}
             >
-              Sign In
+              Other Sign In Options
             </Button>
           </motion.div>
-
-          <div className="flex items-center justify-center gap-4 mt-6">
-            <p className="text-sm text-muted-foreground">
-              Don&apos;t have an account?
-            </p>
-            <Link 
-              href="/signup" 
-              className="text-sm font-medium text-primary hover:underline"
-            >
-              Create one here
-            </Link>
-          </div>
         </div>
       </section>
 
       {/* Features Section */}
-      <section id="features" className="py-20 px-6 bg-muted/50">
+      <section className="py-20 px-6 bg-muted/50">
         <div className="container mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -225,7 +184,7 @@ export default function Home() {
       </section>
 
       {/* Skills Preview */}
-      <section id="skills" className="py-20 px-6">
+      <section className="py-20 px-6">
         <div className="container mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -270,7 +229,7 @@ export default function Home() {
       </section>
 
       {/* CTA Section */}
-      <section id="about" className="py-20 px-6 bg-gradient-to-r from-primary/10 to-secondary/10">
+      <section className="py-20 px-6 bg-gradient-to-r from-primary/10 to-secondary/10">
         <div className="container mx-auto text-center">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
