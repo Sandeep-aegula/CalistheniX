@@ -86,7 +86,6 @@ export default function Home() {
       loadSkills()
     }
   }, [session])
-  const [activeWorkouts, setActiveWorkouts] = useState({})
   
   // Mock user data for demonstration
   const mockUser = session ? {
