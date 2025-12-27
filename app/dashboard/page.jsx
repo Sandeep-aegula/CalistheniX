@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { signIn, signOut, useSession } from 'next-auth/react'
 import { 
@@ -27,11 +27,65 @@ import { initialSkills, initialMissions, initialBadges } from '@/data/gameData'
 export default function Home() {
   const { data: session, status } = useSession()
   const [currentPage, setCurrentPage] = useState('dashboard')
-  const [userMissions, setUserMissions] = useState(initialMissions)
-  const [userSkills, setUserSkills] = useState(initialSkills)
-  const [completedMissions, setCompletedMissions] = useState([])
-  const [startedMissions, setStartedMissions] = useState([])
+  
+  // Skills and progress state
+  const [skills, setSkills] = useState([])
+  const [loadingSkills, setLoadingSkills] = useState(true)
   const [skillProgress, setSkillProgress] = useState({})
+  const [completedSkills, setCompletedSkills] = useState([])
+  
+  // Mission state  
+  const [userMissions, setUserMissions] = useState(initialMissions)
+  const [activeMission, setActiveMission] = useState(null) // Only one active mission at a time
+  const [completedMissions, setCompletedMissions] = useState([])
+  
+  // Workout state
+  const [activeWorkouts, setActiveWorkouts] = useState({})
+
+  // Load skills from database on component mount
+  useEffect(() => {
+    const loadSkills = async () => {
+      try {
+        setLoadingSkills(true)
+        const response = await fetch('/api/skills')
+        
+        if (response.ok) {
+          const data = await response.json()
+          setSkills(data.skills)
+          
+          // Extract completed skills from user progress
+          const completed = data.skills
+            .filter(skill => skill.isUnlocked && skill.userProgress?.masteryLevel > 0)
+            .map(skill => skill.name)
+          setCompletedSkills(completed)
+          
+          console.log('Skills loaded:', data.skills.length, 'completed:', completed.length)
+        } else if (response.status === 404 || response.status === 500) {
+          // If no skills exist, seed the database
+          console.log('No skills found, seeding database...')
+          const seedResponse = await fetch('/api/seed', { method: 'POST' })
+          if (seedResponse.ok) {
+            // Retry loading skills after seeding
+            const retryResponse = await fetch('/api/skills')
+            if (retryResponse.ok) {
+              const data = await retryResponse.json()
+              setSkills(data.skills)
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error loading skills:', error)
+        // Fall back to hardcoded skills if API fails
+        setSkills(initialSkills)
+      } finally {
+        setLoadingSkills(false)
+      }
+    }
+
+    if (session) {
+      loadSkills()
+    }
+  }, [session])
   const [activeWorkouts, setActiveWorkouts] = useState({})
   
   // Mock user data for demonstration
@@ -54,9 +108,78 @@ export default function Home() {
   } : null
 
   const handleStartMission = (mission) => {
-    setStartedMissions(prev => [...prev, mission.id])
+    // Only allow one active mission at a time
+    if (activeMission) {
+      alert(`❌ You already have an active mission: "${activeMission.title}"\n\nComplete or cancel it first before starting a new one.`)
+      return
+    }
+    
+    setActiveMission(mission)
     console.log(`Mission "${mission.title}" started!`)
-    alert(`🎯 Mission "${mission.title}" started!\n\n✅ Go to Skills page\n✅ Train the required skills:\n${mission.requirements.map(req => `• ${req.skillName}: ${req.targetValue} ${req.unit}`).join('\n')}\n✅ Come back when done to complete the mission`)
+    alert(`🎯 Mission "${mission.title}" started!\n\n✅ Go to Skills page\n✅ Complete the required skills:\n${mission.requirements.map(req => `• ${req.skillName}: ${req.targetValue} ${req.unit}`).join('\n')}\n✅ Come back when done to complete the mission`)
+  }
+
+  const handleCompleteSkill = async (skill) => {
+    console.log('handleCompleteSkill called with:', skill.name)
+    
+    // Check if skill is already completed
+    if (completedSkills.includes(skill.name)) {
+      console.log('Skill already completed')
+      alert(`✅ You've already completed ${skill.name}!`)
+      return
+    }
+    
+    try {
+      console.log('Saving skill completion to database')
+      
+      // Get target reps for this skill (from mission or default)
+      const targetReps = activeMission?.requirements.find(req => req.skillName === skill.name)?.targetValue || skill.targetReps || 10
+      
+      // Call the skills API to save progress to database
+      const response = await fetch('/api/skills', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          skillId: skill.id || skill._id, // Handle both formats
+          skillName: skill.name,
+          performance: {
+            reps: targetReps,
+            sets: skill.targetSets || 1,
+            duration: 0
+          }
+        }),
+      })
+      
+      if (!response.ok) {
+        throw new Error('Failed to save skill progress')
+      }
+      
+      const result = await response.json()
+      console.log('Skill progress saved:', result)
+      
+      // Update local state after successful database save
+      setCompletedSkills(prev => [...prev, skill.name])
+      
+      setSkillProgress(prev => ({
+        ...prev,
+        [skill.name]: {
+          ...prev[skill.name],
+          totalReps: targetReps,
+          lastWorkout: new Date(),
+          completedSessions: (prev[skill.name]?.completedSessions || 0) + 1,
+          bestSingleSession: targetReps
+        }
+      }))
+      
+      console.log('Skill completed successfully')
+      alert(`🎉 ${skill.name} completed!\n\n✅ Skill progress saved to database!\n🎯 XP Earned: ${result.xpEarned}${activeMission ? '\n💪 Check your mission progress!' : ''}`)
+      
+    } catch (error) {
+      console.error('Error completing skill:', error)
+      alert(`❌ Error saving skill progress: ${error.message}\n\nPlease try again.`)
+    }
   }
 
   const handleStartSkill = (skill) => {
@@ -153,6 +276,35 @@ export default function Home() {
       // Success message with stats
       const newTotal = (skillProgress[skillKey]?.totalReps || 0) + totalReps
       alert(`🎉 WORKOUT COMPLETED! 🎉\n\n💪 ${skill.name}: ${totalReps} reps this session\n📈 Total lifetime reps: ${newTotal}\n🏆 Sessions completed: ${(skillProgress[skillKey]?.completedSessions || 0) + 1}\n\n🎯 Go check your Mission progress!`)
+      
+      // Check if this workout completion satisfies mission requirements
+      if (activeMission) {
+        const requirement = activeMission.requirements.find(req => req.skillName === skill.name)
+        if (requirement && newTotal >= requirement.targetValue) {
+          // Mark this skill as completed for the mission
+          setCompletedSkills(prev => {
+            if (!prev.includes(skill.name)) {
+              return [...prev, skill.name]
+            }
+            return prev
+          })
+          
+          // Check if all mission requirements are now met
+          const allRequirementsMet = activeMission.requirements.every(req => {
+            if (req.skillName === skill.name) {
+              return newTotal >= req.targetValue
+            }
+            const otherSkillProgress = skillProgress[req.skillName]
+            return otherSkillProgress && otherSkillProgress.totalReps >= req.targetValue
+          })
+          
+          if (allRequirementsMet) {
+            setTimeout(() => {
+              alert(`🎯 MISSION READY TO COMPLETE! 🎯\n\nAll requirements for "${activeMission.title}" are now met!\n\n✅ Go to the Missions section to claim your reward!`)
+            }, 2000)
+          }
+        }
+      }
     }
     
     const cancelWorkout = () => {
@@ -171,12 +323,15 @@ export default function Home() {
 
   const handleCompleteMission = async (mission) => {
     try {
+      if (!activeMission || activeMission.title !== mission.title) {
+        alert('❌ This mission is not currently active!')
+        return
+      }
+      
       // Check if mission requirements are met
       const requirementsMet = mission.requirements.every(req => {
         const skillProgressForSkill = skillProgress[req.skillName]
-        if (!skillProgressForSkill) return false
-        
-        return skillProgressForSkill.totalReps >= req.targetValue
+        return skillProgressForSkill && skillProgressForSkill.totalReps >= req.targetValue
       })
       
       if (!requirementsMet) {
@@ -185,7 +340,7 @@ export default function Home() {
             .filter(req => !skillProgress[req.skillName] || skillProgress[req.skillName].totalReps < req.targetValue)
             .map(req => `• ${req.skillName}: ${skillProgress[req.skillName]?.totalReps || 0}/${req.targetValue} ${req.unit}`)
             .join('\n')
-        }\n\nGo to Skills page and train more!`)
+        }\n\nGo to Skills page and complete more skills!`)
         return
       }
       
@@ -194,7 +349,7 @@ export default function Home() {
       
       // Mark mission as completed
       setCompletedMissions(prev => [...prev, mission.id])
-      setStartedMissions(prev => prev.filter(id => id !== mission.id))
+      setActiveMission(null) // Clear active mission
       
       // Update user progress (simulate XP gain)
       console.log(`Mission "${mission.title}" completed! +${mission.xpReward} XP`)
@@ -205,6 +360,29 @@ export default function Home() {
     } catch (error) {
       console.error('Failed to complete mission:', error)
       alert('Failed to complete mission. Please try again.')
+    }
+  }
+  
+  const handleCancelMission = () => {
+    if (!activeMission) return
+    
+    const confirmed = confirm(`⚠️ Cancel active mission "${activeMission.title}"?\n\nAll progress will be lost.`)
+    
+    if (confirmed) {
+      setActiveMission(null)
+      setCompletedSkills([])
+      // Reset skill progress for cancelled mission
+      const resetProgress = { ...skillProgress }
+      activeMission.requirements.forEach(req => {
+        if (resetProgress[req.skillName]) {
+          resetProgress[req.skillName] = {
+            ...resetProgress[req.skillName],
+            totalReps: 0
+          }
+        }
+      })
+      setSkillProgress(resetProgress)
+      alert('🚫 Mission cancelled')
     }
   }
 
@@ -326,16 +504,16 @@ export default function Home() {
         </h2>
         
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
-          {initialSkills.slice(0, 3).map((skill, index) => (
+          {skills.slice(0, 3).map((skill, index) => (
             <motion.div
-              key={skill.name}
+              key={skill._id || skill.name}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.1 }}
             >
               <SkillCard 
                 skill={skill}
-                isUnlocked={index === 0}
+                isUnlocked={skill.isUnlocked || index === 0}
                 onStartSkill={() => setCurrentPage('skills')}
               />
             </motion.div>
@@ -362,33 +540,85 @@ export default function Home() {
       animate={{ opacity: 1 }}
       transition={{ duration: 0.5 }}
     >
-      <div className="text-center">
+      <div className="text-center space-y-4">
         <h1 className="text-3xl font-bold gradient-text mb-2">Skill Tree</h1>
         <p className="text-muted-foreground">
           Master the fundamentals and unlock advanced moves
         </p>
+        
+        {/* Active Mission Info */}
+        {activeMission && (
+          <div className="bg-primary/10 border border-primary/30 rounded-lg p-4 max-w-2xl mx-auto">
+            <h3 className="font-semibold text-primary mb-2">Active Mission: {activeMission.title}</h3>
+            <p className="text-sm text-muted-foreground mb-3">{activeMission.description}</p>
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Required Skills:</p>
+              <div className="flex flex-wrap gap-2">
+                {activeMission.requirements.map((req, idx) => (
+                  <span
+                    key={idx}
+                    className={`px-2 py-1 rounded-full text-xs ${
+                      completedSkills.includes(req.skillName)
+                        ? 'bg-secondary/20 text-secondary border border-secondary/30'
+                        : 'bg-muted text-muted-foreground'
+                    }`}
+                  >
+                    {completedSkills.includes(req.skillName) ? '✅' : '⏳'} {req.skillName}: {req.targetValue} {req.unit}
+                  </span>
+                ))}
+              </div>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleCancelMission}
+                className="mt-2"
+              >
+                Cancel Mission
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {initialSkills.map((skill, index) => {
-          const isUnlocked = index < 8 // Most skills unlocked for demo
-          const skillProgressData = skillProgress[skill.name]
-          const isCompleted = skillProgressData && skillProgressData.totalReps >= skill.targetReps
-          
-          return (
-            <SkillCard 
-              key={skill.name}
-              skill={skill}
-              isUnlocked={isUnlocked}
-              isCompleted={isCompleted}
-              userProgress={skillProgressData ? { 
-                bestPerformance: { reps: skillProgressData.totalReps },
-                totalSessions: skillProgressData.completedSessions
-              } : null}
-              onStartSkill={isUnlocked ? handleStartSkill : null}
-            />
-          )
-        })}
+        {loadingSkills ? (
+          // Loading placeholder
+          Array.from({ length: 6 }).map((_, index) => (
+            <Card key={index} className="animate-pulse">
+              <Card.Header>
+                <div className="h-4 bg-muted rounded w-3/4 mb-2"></div>
+                <div className="h-3 bg-muted rounded w-1/2"></div>
+              </Card.Header>
+              <Card.Content>
+                <div className="h-20 bg-muted rounded"></div>
+              </Card.Content>
+            </Card>
+          ))
+        ) : (
+          skills.map((skill, index) => {
+            const isRequiredForActiveMission = activeMission?.requirements.some(req => req.skillName === skill.name)
+            const isUnlocked = skill.isUnlocked || index < 8 || isRequiredForActiveMission // Auto-unlock mission-required skills
+            const skillProgressData = skillProgress[skill.name]
+            const isCompleted = completedSkills.includes(skill.name)
+            
+            return (
+              <SkillCard 
+                key={skill._id || skill.name}
+                skill={skill}
+                isUnlocked={isUnlocked}
+                isCompleted={isCompleted}
+                userProgress={skillProgressData ? { 
+                  bestPerformance: { reps: skillProgressData.totalReps },
+                  totalSessions: skillProgressData.completedSessions
+                } : null}
+                onStartSkill={null} // Remove old start training functionality
+                onCompleteSkill={handleCompleteSkill}
+                showMissionRequired={!activeMission}
+                isRequiredForActiveMission={isRequiredForActiveMission}
+              />
+            )
+          })
+        )}
       </div>
     </motion.div>
   )
@@ -409,11 +639,11 @@ export default function Home() {
 
       <div className="grid md:grid-cols-2 gap-6">
         {initialMissions.map((mission, index) => {
-          const isStarted = startedMissions.includes(mission.id)
+          const isActive = activeMission && activeMission.title === mission.title
           const isCompleted = completedMissions.includes(mission.id)
           
           // Check if mission can be completed (all requirements met)
-          const canComplete = isStarted && mission.requirements.every(req => {
+          const canComplete = isActive && mission.requirements.every(req => {
             const skillProgressForSkill = skillProgress[req.skillName]
             return skillProgressForSkill && skillProgressForSkill.totalReps >= req.targetValue
           })
@@ -423,7 +653,8 @@ export default function Home() {
               key={mission.title}
               mission={mission}
               isCompleted={isCompleted}
-              userProgress={isStarted ? {
+              isActive={isActive}
+              userProgress={isActive ? {
                 progress: mission.requirements.map(req => ({
                   skillName: req.skillName,
                   currentValue: skillProgress[req.skillName]?.totalReps || 0,
@@ -433,7 +664,7 @@ export default function Home() {
                 isCompleted: isCompleted
               } : null}
               onCompleteMission={canComplete ? handleCompleteMission : null}
-              onStartMission={!isStarted && !isCompleted ? handleStartMission : null}
+              onStartMission={!isActive && !isCompleted && !activeMission ? handleStartMission : null}
             />
           )
         })}

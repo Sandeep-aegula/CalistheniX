@@ -12,6 +12,7 @@ const MissionCard = ({
   mission,
   userProgress = null,
   isCompleted: isCompletedProp,
+  isActive = false,
   onStartMission,
   onCompleteMission,
   className,
@@ -211,17 +212,17 @@ const MissionCard = ({
                 Complete Mission
                 <Trophy className="w-4 h-4 ml-2" />
               </Button>
-            ) : userProgress ? (
+            ) : isActive ? (
               <Button
-                key="continue"
+                key="active"
                 variant="outline"
-                onClick={() => onStartMission?.(mission)}
+                disabled
                 className="w-full"
               >
-                Continue Mission
-                <ArrowRight className="w-4 h-4 ml-2" />
+                Mission Active - Go to Skills
+                <Target className="w-4 h-4 ml-2" />
               </Button>
-            ) : (
+            ) : onStartMission ? (
               <Button
                 key="start"
                 variant="primary"
@@ -230,6 +231,15 @@ const MissionCard = ({
               >
                 Start Mission
                 <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            ) : (
+              <Button
+                key="unavailable"
+                variant="outline"
+                disabled
+                className="w-full"
+              >
+                Complete Active Mission First
               </Button>
             )}
           </AnimatePresence>

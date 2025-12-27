@@ -279,6 +279,7 @@ export const initialSkills = [
 export const initialMissions = [
   // Daily Missions
   {
+    id: 1,
     title: 'Morning Warrior',
     description: 'Complete a basic strength circuit to start your day strong',
     type: 'daily',
@@ -293,6 +294,7 @@ export const initialMissions = [
     isActive: true
   },
   {
+    id: 2,
     title: 'Grip Master',
     description: 'Build crushing grip strength with hanging exercises',
     type: 'daily',
@@ -305,6 +307,7 @@ export const initialMissions = [
     isActive: true
   },
   {
+    id: 3,
     title: 'Push Power',
     description: 'Focus on pushing strength and endurance',
     type: 'daily',
@@ -320,6 +323,7 @@ export const initialMissions = [
   
   // Weekly Missions
   {
+    id: 4,
     title: 'Consistency Champion',
     description: 'Train for 5 days this week to build lasting habits',
     type: 'weekly',
@@ -332,6 +336,7 @@ export const initialMissions = [
     isActive: true
   },
   {
+    id: 5,
     title: 'Skill Seeker',
     description: 'Practice 3 different skill categories this week',
     type: 'weekly',
@@ -348,6 +353,7 @@ export const initialMissions = [
   
   // Monthly Challenges
   {
+    id: 6,
     title: 'Century Club',
     description: 'Complete 100 push-ups this month (cumulative)',
     type: 'monthly',
@@ -360,6 +366,7 @@ export const initialMissions = [
     isActive: true
   },
   {
+    id: 7,
     title: 'Iron Grip',
     description: 'Accumulate 30 minutes of dead hang time this month',
     type: 'monthly',

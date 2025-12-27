@@ -75,6 +75,11 @@ const userSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true },
   name: { type: String },
   image: { type: String },
+  password: { type: String }, // For credentials auth
+  
+  // Password Reset
+  resetToken: { type: String },
+  resetTokenExpiry: { type: Date },
   
   // Gamification Stats
   xp: { type: Number, default: 0 },

@@ -14,6 +14,9 @@ const SkillCard = ({
   isCompleted = false,
   userProgress = null,
   onStartSkill,
+  onCompleteSkill,
+  showMissionRequired = false,
+  isRequiredForActiveMission = false,
   className,
   ...props 
 }) => {
@@ -130,18 +133,36 @@ const SkillCard = ({
 
         <Card.Footer>
           <Button
-            variant={isCompleted ? 'secondary' : isUnlocked ? 'primary' : 'outline'}
+            variant={isCompleted ? 'secondary' : 
+                    isRequiredForActiveMission ? 'primary' : 
+                    isUnlocked ? 'outline' : 'outline'}
             disabled={!isUnlocked}
-            onClick={() => isUnlocked && onStartSkill?.(skill)}
-            className="w-full"
+            onClick={() => {
+              console.log('SkillCard clicked:', skill.name, { onCompleteSkill: !!onCompleteSkill, isCompleted, onStartSkill: !!onStartSkill })
+              if (onCompleteSkill && !isCompleted) {
+                console.log('Calling onCompleteSkill')
+                onCompleteSkill(skill)
+              } else if (onStartSkill) {
+                console.log('Calling onStartSkill')
+                onStartSkill(skill)
+              } else {
+                console.log('No action - conditions not met')
+              }
+            }}
+            className={cn(
+              'w-full',
+              isRequiredForActiveMission && !isCompleted && 'animate-pulse'
+            )}
           >
             {!isUnlocked ? (
               'Locked'
+            ) : showMissionRequired ? (
+              'Start a Mission First'
             ) : isCompleted ? (
-              'Master this skill!'
+              'Completed! ✅'
             ) : (
               <>
-                Start Training
+                Complete Skill
                 <ArrowRight className="w-4 h-4 ml-2" />
               </>
             )}

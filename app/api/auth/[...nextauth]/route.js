@@ -5,6 +5,15 @@ import dbConnect from '@/lib/mongodb'
 import { User } from '@/models'
 import bcrypt from 'bcryptjs'
 
+// Validate required environment variables
+if (!process.env.NEXTAUTH_SECRET) {
+  throw new Error('NEXTAUTH_SECRET is required')
+}
+
+if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+  console.warn('Google OAuth credentials missing. Google sign-in will not work.')
+}
+
 const handler = NextAuth({
   providers: [
     GoogleProvider({
@@ -121,7 +130,11 @@ const handler = NextAuth({
     strategy: 'jwt'
   },
   secret: process.env.NEXTAUTH_SECRET,
-  debug: process.env.NODE_ENV === 'development'
+  debug: process.env.NODE_ENV === 'development',
+  // Add trustHost for development
+  trustHost: true,
+  // Ensure proper URL configuration
+  url: process.env.NEXTAUTH_URL || 'http://localhost:3000'
 })
 
 export { handler as GET, handler as POST }

@@ -228,6 +228,13 @@ function SignInContent() {
                 </div>
               </div>
 
+              {/* Forgot Password Link */}
+              <div className="text-right">
+                <Link href="/forgot-password" className="text-sm text-blue-600 hover:text-blue-500 transition-colors">
+                  Forgot your password?
+                </Link>
+              </div>
+
               {/* Submit Button */}
               <Button
                 type="submit"

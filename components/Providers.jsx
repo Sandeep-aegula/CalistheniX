@@ -5,7 +5,12 @@ import { Toaster } from 'react-hot-toast'
 
 export default function Providers({ children, session }) {
   return (
-    <SessionProvider session={session}>
+    <SessionProvider 
+      session={session}
+      // Add refetch interval to avoid stale sessions
+      refetchInterval={5 * 60} // 5 minutes
+      refetchOnWindowFocus={true}
+    >
       {children}
       <Toaster 
         position="top-right"

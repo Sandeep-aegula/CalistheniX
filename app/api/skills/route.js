@@ -53,13 +53,24 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { skillId, performance } = await request.json()
+    const { skillId, skillName, performance } = await request.json()
     
     const user = await User.findOne({ email: session.user.email })
-    const skill = await Skill.findById(skillId)
     
-    if (!user || !skill) {
-      return NextResponse.json({ error: 'User or skill not found' }, { status: 404 })
+    // Find skill by ID or name
+    let skill
+    if (skillId) {
+      skill = await Skill.findById(skillId)
+    } else if (skillName) {
+      skill = await Skill.findOne({ name: skillName })
+    }
+    
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    }
+    
+    if (!skill) {
+      return NextResponse.json({ error: 'Skill not found' }, { status: 404 })
     }
 
     // Find or create unlocked skill entry
