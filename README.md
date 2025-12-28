@@ -99,12 +99,3 @@ https://nextjs.org/docs/app/building-your-application/deploying
 
 ⭐ If you find this project useful, consider starring the repository!
 
-If you want next, I can:
-
-Merge this with your CalistheniX custom README
-
-Add badges (Next.js, Vercel, License, Tech Stack)
-
-Make it resume & recruiter optimized
-
-Create a demo + screenshots section
