@@ -136,17 +136,40 @@ const SkillCard = ({
             variant={isCompleted ? 'secondary' : 
                     isRequiredForActiveMission ? 'primary' : 
                     isUnlocked ? 'outline' : 'outline'}
-            disabled={!isUnlocked}
-            onClick={() => {
-              console.log('SkillCard clicked:', skill.name, { onCompleteSkill: !!onCompleteSkill, isCompleted, onStartSkill: !!onStartSkill })
-              if (onCompleteSkill && !isCompleted) {
-                console.log('Calling onCompleteSkill')
+            disabled={!isUnlocked || isCompleted}
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              
+              console.log('🔘 SkillCard Button clicked!', {
+                skillName: skill.name,
+                isUnlocked,
+                isCompleted,
+                disabled: !isUnlocked || isCompleted,
+                hasOnCompleteSkill: !!onCompleteSkill,
+                hasOnStartSkill: !!onStartSkill,
+                event: 'clicked'
+              })
+              
+              if (!isUnlocked) {
+                console.log('❌ Skill not unlocked, cannot complete')
+                return
+              }
+              
+              if (isCompleted) {
+                console.log('✅ Skill already completed')
+                return
+              }
+              
+              if (onCompleteSkill) {
+                console.log('🎯 Calling onCompleteSkill for:', skill.name)
                 onCompleteSkill(skill)
               } else if (onStartSkill) {
-                console.log('Calling onStartSkill')
+                console.log('🚀 Calling onStartSkill for:', skill.name)
                 onStartSkill(skill)
               } else {
-                console.log('No action - conditions not met')
+                console.log('❌ No completion handler available')
+                alert('❌ No completion handler available. This might be a configuration issue.')
               }
             }}
             className={cn(
@@ -172,17 +195,16 @@ const SkillCard = ({
         {/* Unlock Animation Overlay */}
         {isUnlocked && !isCompleted && (
           <motion.div
-            className="absolute inset-0 bg-gradient-to-r from-primary/20 to-secondary/20 opacity-0"
+            className="absolute inset-0 bg-gradient-to-r from-primary/20 to-secondary/20 opacity-0 pointer-events-none"
             animate={{ opacity: [0, 0.3, 0] }}
             transition={{ duration: 2, repeat: Infinity, type: "tween" }}
-
           />
         )}
 
         {/* Mastery Glow for Completed Skills */}
         {isCompleted && (
           <motion.div
-            className="absolute inset-0 bg-secondary/10 rounded-lg"
+            className="absolute inset-0 bg-secondary/10 rounded-lg pointer-events-none"
             animate={{ opacity: [0.1, 0.3, 0.1] }}
             transition={{ duration: 3, repeat: Infinity, delay: 0.5, type: "tween" }}
           />

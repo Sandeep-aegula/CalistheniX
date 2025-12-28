@@ -38,19 +38,7 @@ const Navigation = ({ currentPage = 'dashboard', onPageChange }) => {
 
   return (
     <>
-      {/* Mobile Menu Button */}
-      <div className="md:hidden fixed top-4 left-4 z-50">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setIsOpen(!isOpen)}
-          className="p-2"
-        >
-          {isOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
-        </Button>
-      </div>
-
-      {/* Mobile Overlay */}
+      {/* Mobile Overlay - only show when sidebar is open on desktop */}
       {isOpen && (
         <motion.div
           className="md:hidden fixed inset-0 bg-background/80 backdrop-blur-sm z-40"
@@ -61,13 +49,9 @@ const Navigation = ({ currentPage = 'dashboard', onPageChange }) => {
         />
       )}
 
-      {/* Sidebar */}
+      {/* Desktop Sidebar - Hidden on mobile */}
       <motion.aside
-        className={cn(
-          "fixed left-0 top-0 h-full w-64 bg-card border-r border-border z-45 shadow-lg",
-          "md:translate-x-0 md:block",
-          isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
-        )}
+        className="hidden md:block fixed left-0 top-0 h-full w-64 bg-card border-r border-border z-45 shadow-lg"
       >
         <div className="flex flex-col h-full">
           {/* Logo */}
