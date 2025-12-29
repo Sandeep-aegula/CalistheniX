@@ -44,13 +44,24 @@ export async function POST(request) {
     const saltRounds = 12
     const hashedPassword = await bcrypt.hash(password, saltRounds)
 
-    // Create user
+    // Create user with all stats initialized to zero
     const user = await User.create({
       name: name.trim(),
       username: username.toLowerCase().trim(),
       email: email.toLowerCase().trim(),
       password: hashedPassword,
-      // Default gamification values are set in schema
+      // Gamification stats - all start at zero
+      xp: 0,
+      level: 0,
+      missionLevel: 'beginner',
+      totalWorkouts: 0,
+      currentStreak: 0,
+      longestStreak: 0,
+      unlockedSkills: [],
+      badges: [],
+      skillBadges: [],
+      milestones: [],
+      bodyWeight: []
     })
 
     // Return user data without password

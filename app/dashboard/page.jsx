@@ -1054,7 +1054,7 @@ export default function Home() {
     ? skills.filter(skill => 
         activeMission.requirements.some(req => req.skillName === skill.name)
       )
-    : skills
+    : [] // Return empty array when no active mission to enforce mission-first flow
 
   // Auto-complete mission when all required skills are done
   useEffect(() => {

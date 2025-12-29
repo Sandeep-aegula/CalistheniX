@@ -38,6 +38,20 @@ const missionSchema = new mongoose.Schema({
     required: true,
     enum: ['strength', 'endurance', 'skill', 'consistency', 'challenge']
   },
+  level: {
+    type: String,
+    enum: ['beginner', 'fat-burn', 'intermediate', 'pro'],
+    default: 'beginner'
+  },
+  difficulty: {
+    type: Number,
+    min: 1,
+    max: 10,
+    default: 1
+  },
+  day: { type: String }, // Day of week or schedule
+  emoji: { type: String }, // Emoji representation
+  skills: [String], // Array of skill names
   requirements: [{
     skillName: String,
     targetValue: Number,
@@ -45,6 +59,10 @@ const missionSchema = new mongoose.Schema({
   }],
   xpReward: { type: Number, required: true },
   badgeReward: { type: String }, // Optional badge for completion
+  prerequisites: [{
+    missionId: { type: mongoose.Schema.Types.ObjectId, ref: 'Mission' },
+    minCompletions: { type: Number, default: 1 }
+  }],
   isActive: { type: Boolean, default: true },
   startDate: { type: Date, default: Date.now },
   endDate: Date
@@ -83,7 +101,12 @@ const userSchema = new mongoose.Schema({
   
   // Gamification Stats
   xp: { type: Number, default: 0 },
-  level: { type: Number, default: 1 },
+  level: { type: Number, default: 0 },
+  missionLevel: { 
+    type: String, 
+    enum: ['beginner', 'fat-burn', 'intermediate', 'pro'], 
+    default: 'beginner' 
+  },
   totalWorkouts: { type: Number, default: 0 },
   currentStreak: { type: Number, default: 0 },
   longestStreak: { type: Number, default: 0 },
@@ -100,9 +123,23 @@ const userSchema = new mongoose.Schema({
     }
   }],
   
+  // Badges and Achievements
   badges: [{
     badgeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Badge' },
     earnedAt: { type: Date, default: Date.now }
+  }],
+  
+  skillBadges: [{
+    badgeId: String, // ID from skillBadges array
+    earnedAt: { type: Date, default: Date.now },
+    category: String // push, pull, core, legs, combination, endurance, leverage
+  }],
+  
+  milestones: [{
+    milestoneId: String, // ID from milestoneAchievements array
+    earnedAt: { type: Date, default: Date.now },
+    title: String,
+    xpBonus: Number
   }],
   
   // Progress Tracking

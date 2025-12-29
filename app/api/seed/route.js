@@ -1,23 +1,71 @@
 import { NextResponse } from 'next/server'
 import dbConnect from '@/lib/mongodb'
-import { Skill, Mission } from '@/models'
+import { Skill, Mission, User } from '@/models'
 import { initialSkills, initialMissions } from '@/data/gameData'
+import { allMissions, skillBadges, milestoneAchievements } from '@/data/missionsSystem'
 
 export async function POST(request) {
   try {
     await dbConnect()
     
-    // Check if skills already exist to avoid duplicates
-    const existingSkills = await Skill.countDocuments()
-    const existingMissions = await Mission.countDocuments()
+    // 1. RESET ALL USER XP AND LEVELS TO ZERO
+    console.log('🔄 Resetting user XP and levels...')
+    const resetResult = await User.updateMany(
+      {},
+      {
+        $set: {
+          xp: 0,
+          level: 1,
+          missionLevel: 'beginner',
+          currentStreak: 0,
+          longestStreak: 0,
+          totalWorkouts: 0,
+          skillBadges: [],
+          milestones: [],
+          badges: []
+        }
+      }
+    )
+    console.log(`Reset XP/levels for ${resetResult.modifiedCount} users`)
     
-    let skillsCreated = 0
+    // 2. CLEAR AND SEED MISSIONS FROM MISSION SYSTEM
+    console.log('🎯 Seeding missions from missionsSystem...')
+    
+    // Clear existing missions
+    await Mission.deleteMany({})
+    console.log('Cleared existing missions')
+    
+    // Seed all missions from missionsSystem
     let missionsCreated = 0
-    
-    // Seed skills if none exist
-    if (existingSkills === 0) {
-      console.log('Seeding skills...')
+    for (const mission of allMissions) {
+      const missionData = {
+        title: mission.title,
+        description: mission.description,
+        level: mission.level,
+        category: mission.category,
+        difficulty: mission.difficulty,
+        emoji: mission.emoji,
+        requirements: mission.requirements,
+        xpReward: mission.xpReward,
+        xpMultiplier: mission.xpMultiplier,
+        prerequisites: mission.prerequisites || [],
+        skillsRequired: mission.skillsRequired || [],
+        type: 'weekly',
+        isActive: true
+      }
       
+      const newMission = new Mission(missionData)
+      await newMission.save()
+      missionsCreated++
+    }
+    console.log(`✅ Created ${missionsCreated} missions from missionsSystem`)
+    
+    // 3. SEED SKILLS
+    console.log('💪 Seeding skills...')
+    const existingSkills = await Skill.countDocuments()
+    let skillsCreated = 0
+    
+    if (existingSkills === 0) {
       for (const skillData of initialSkills) {
         const existingSkill = await Skill.findOne({ name: skillData.name })
         if (!existingSkill) {
@@ -26,36 +74,21 @@ export async function POST(request) {
           skillsCreated++
         }
       }
-      
-      console.log(`Created ${skillsCreated} skills`)
-    }
-    
-    // Seed missions if none exist
-    if (existingMissions === 0) {
-      console.log('Seeding missions...')
-      
-      for (const missionData of initialMissions) {
-        const existingMission = await Mission.findOne({ title: missionData.title })
-        if (!existingMission) {
-          const mission = new Mission(missionData)
-          await mission.save()
-          missionsCreated++
-        }
-      }
-      
-      console.log(`Created ${missionsCreated} missions`)
+      console.log(`✅ Created ${skillsCreated} skills`)
+    } else {
+      console.log(`⏭️  Skills already exist (${existingSkills} found), skipping...`)
     }
     
     return NextResponse.json({ 
-      message: 'Database seeded successfully',
-      skillsCreated,
+      message: 'Database reset and seeded successfully',
+      usersReset: resetResult.modifiedCount,
       missionsCreated,
-      existingSkills,
-      existingMissions
+      skillsCreated,
+      status: 'success'
     })
 
   } catch (error) {
     console.error('Seed database error:', error)
-    return NextResponse.json({ error: 'Failed to seed database' }, { status: 500 })
+    return NextResponse.json({ error: error.message || 'Failed to seed database' }, { status: 500 })
   }
 }
