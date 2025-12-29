@@ -5,7 +5,7 @@
  */
 
 import { User, Mission } from '@/models'
-import { connectDB } from '@/lib/mongodb'
+import dbConnect from '@/lib/mongodb'
 import {
   skillBadges,
   milestoneAchievements,
@@ -15,7 +15,7 @@ import {
 
 export async function POST(req) {
   try {
-    await connectDB()
+    await dbConnect()
 
     const { userId, missionId, skillScores } = await req.json()
 

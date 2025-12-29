@@ -1,9 +1,9 @@
-import { connectDB } from '@/lib/mongodb'
+import dbConnect from '@/lib/mongodb'
 import { allMissions } from '@/data/missionsSystem'
 
 export async function GET(request) {
   try {
-    await connectDB()
+    await dbConnect()
 
     const { searchParams } = new URL(request.url)
     const userId = searchParams.get('userId')
