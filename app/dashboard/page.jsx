@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { signIn, signOut, useSession } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
 import { 
   Zap, 
   Target, 
@@ -11,7 +12,9 @@ import {
   Calendar,
   Star,
   ArrowRight,
-  LogIn
+  LogIn,
+  Activity,
+  Lock
 } from 'lucide-react'
 
 import Navigation from '@/components/Navigation'
@@ -21,6 +24,7 @@ import MissionCard from '@/components/MissionCard'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Badge from '@/components/ui/Badge'
+import { cn } from '@/lib/utils'
 
 import { initialSkills, initialMissions, initialBadges } from '@/data/gameData'
 
@@ -89,9 +93,26 @@ const getCurrentMissionForType = (missions, type, date = new Date()) => {
   return availableMissions[0]
 }
 
+// Achievement System Definitions
+const BADGES = [
+  { id: 'first_mission', title: 'Operative Active', desc: 'Secure your first mission completion.', req: (s) => s.missionsCompleted >= 1, icon: 'Zap', color: 'text-primary' },
+  { id: 'skill_novice', title: 'Bronze Basics', desc: 'Master 5 different training sub-routines.', req: (s) => s.skillsCompleted >= 5, icon: 'Shield', color: 'text-bronze' },
+  { id: 'xp_1000', title: 'Power Surge', desc: 'Amass 1,000 telemetry XP points.', req: (s) => s.totalXP >= 1000, icon: 'Flame', color: 'text-orange-500' },
+  { id: 'streak_3', title: 'Heat Signature', desc: 'Maintain active telemetry for 3 consecutive days.', req: (s) => s.currentStreak >= 3, icon: 'Activity', color: 'text-red-500' },
+  { id: 'elite_warrior', title: 'Elite Status', desc: 'Complete 25 missions and reach Level 10.', req: (s) => s.missionsCompleted >= 25 && s.level >= 10, icon: 'Trophy', color: 'text-gold' }
+]
+
 export default function Home() {
   const { data: session, status } = useSession()
+  const router = useRouter()
   const [currentPage, setCurrentPage] = useState('dashboard')
+
+  // Redirect to landing if not logged in
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/')
+    }
+  }, [status, router])
   
   // Skills and progress state
   const [skills, setSkills] = useState([])
@@ -111,11 +132,13 @@ export default function Home() {
   const [userStats, setUserStats] = useState({
     totalXP: 0,
     level: 1,
+    missionLevel: 'beginner',
     skillsCompleted: 0,
     missionsCompleted: 0,
     currentStreak: 0,
     longestStreak: 0,
-    totalWorkouts: 0
+    totalWorkouts: 0,
+    unlockedBadges: []
   })
   
   const [progressHistory, setProgressHistory] = useState({
@@ -188,7 +211,7 @@ export default function Home() {
         localStorage.setItem('activeMission', JSON.stringify(gripMasterMission))
       }
     }
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
   
   // Workout state
   const [activeWorkouts, setActiveWorkouts] = useState({})
@@ -258,6 +281,7 @@ export default function Home() {
     ...session.user,
     xp: userStats.totalXP,
     level: userStats.level,
+    missionLevel: userStats.missionLevel || 'beginner', // Add mission level
     totalWorkouts: userStats.totalWorkouts,
     currentStreak: userStats.currentStreak,
     longestStreak: userStats.longestStreak,
@@ -338,7 +362,6 @@ export default function Home() {
 
   const handleStartMission = (mission) => {
     console.log('🎯 handleStartMission called with:', mission.title)
-    console.log('🎯 Current activeMission:', activeMission?.title)
     
     // Only allow one active mission at a time
     if (activeMission) {
@@ -346,13 +369,27 @@ export default function Home() {
       return
     }
     
-    console.log('🎯 Setting active mission to:', mission.title)
-    setActiveMission(mission)
+    // Create baselines for mission requirements to track fresh progress
+    const missionWithBaselines = {
+      ...mission,
+      baselines: {}
+    }
+    
+    mission.requirements.forEach(req => {
+      missionWithBaselines.baselines[req.skillName] = skillProgress[req.skillName]?.totalReps || 0
+    })
+    
+    console.log('🎯 Setting active mission with baselines:', mission.title, missionWithBaselines.baselines)
+    setActiveMission(missionWithBaselines)
     
     // Save to localStorage for persistence
-    localStorage.setItem('activeMission', JSON.stringify(mission))
+    localStorage.setItem('activeMission', JSON.stringify(missionWithBaselines))
     console.log(`Mission "${mission.title}" started!`)
-    alert(`🎯 Mission "${mission.title}" started!\n\n✅ Go to Skills page\n✅ Complete the required skills:\n${mission.requirements.map(req => `• ${req.skillName}: ${req.targetValue} ${req.unit}`).join('\n')}\n✅ Come back when done to complete the mission`)
+    
+    // Auto-redirect to skills page
+    setCurrentPage('skills')
+    
+    alert(`🎯 Mission "${mission.title}" started!\n\n🚀 Redirecting to the Skill Tree to begin your training protocols.\n\n✅ Complete the required skills:\n${mission.requirements.map(req => `• ${req.skillName} - ${req.targetValue} ${req.unit === 'reps' ? 'Reps' : 'Sec'} x 3 Sets`).join('\n')}\n✅ Come back when done to complete the mission`)
   }
 
   const handleCompleteSkill = async (skill) => {
@@ -366,10 +403,21 @@ export default function Home() {
       return
     }
     
-    // Check if skill is already completed
-    if (completedSkills.includes(skill.name)) {
-      console.log('Skill already completed')
-      alert(`✅ You've already completed ${skill.name}!`)
+    // Check if skill is already completed, BUT allow re-completion if it's required for an active mission
+    const baseline = activeMission?.baselines?.[skill.name] || 0
+    const absoluteTotal = skillProgress[skill.name]?.totalReps || 0
+    const missionRequirement = activeMission?.requirements?.find(req => req.skillName === skill.name)
+    const missionDone = missionRequirement && (absoluteTotal - baseline) >= missionRequirement.targetValue
+
+    if (completedSkills.includes(skill.name) && !activeMission) {
+      console.log('Skill already completed globally')
+      alert(`✅ You've already mastered ${skill.name}!`)
+      return
+    }
+    
+    if (activeMission && missionDone) {
+      console.log('Skill already completed for this mission')
+      alert(`✅ You've already completed the ${skill.name} requirement for this protocol!`)
       return
     }
     
@@ -703,8 +751,65 @@ export default function Home() {
         return
       }
       
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      // Call the real API to complete the mission
+      console.log('🚀 Calling mission completion API...')
+      const response = await fetch('/api/missions/complete', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          missionId: mission.id,
+          userId: session?.user?.id || 'demo-user'
+        })
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        alert(`❌ Failed to complete mission: ${errorData.error || 'Unknown error'}`)
+        return
+      }
+
+      const result = await response.json()
+      console.log('✅ Mission completed via API:', result)
+
+      // Update user stats and check achievements
+      if (result.user) {
+        setUserStats(prev => {
+          const updatedStats = {
+            ...prev,
+            totalXP: result.user.xp,
+            level: result.user.level,
+            missionLevel: result.user.missionLevel,
+            currentStreak: result.user.currentStreak,
+            longestStreak: result.user.longestStreak,
+            totalWorkouts: result.user.totalWorkouts,
+            missionsCompleted: prev.missionsCompleted + 1
+          }
+          
+          // Check for new badge unlocks based on these updated stats
+          const newlyUnlocked = BADGES.filter(badge => 
+            badge.req(updatedStats) && !prev.unlockedBadges?.includes(badge.id)
+          )
+          
+          const finalStats = {
+            ...updatedStats,
+            unlockedBadges: [
+              ...(prev.unlockedBadges || []),
+              ...newlyUnlocked.map(b => b.id)
+            ]
+          }
+          
+          if (newlyUnlocked.length > 0) {
+            setTimeout(() => {
+              alert(`🏆 UNLOCKED: ${newlyUnlocked.map(b => b.title).join(', ')}\n\nNew accolades added to the Vault.`)
+            }, 3000)
+          }
+          
+          localStorage.setItem('userStats', JSON.stringify(finalStats))
+          return finalStats
+        })
+      }
       
       // Mark mission as completed with time-based key
       const missionKey = getMissionKey(mission)
@@ -748,7 +853,9 @@ export default function Home() {
         
         // Show success notification with next mission hint
         setTimeout(() => {
-          alert(`🎉 Mission "${mission.title}" completed!\n\n✅ +${missionXP} XP earned!\n✅ Skills trained: ${mission.requirements.map(req => req.skillName).join(', ')}\n🏆 Level ${Math.floor((userStats.totalXP + missionXP) / 100) + 1}!\n\n🚀 ${remainingMissions.length} more missions available!\nChoose your next mission to keep the momentum going!`)
+          const newLevel = result.user?.level || userStats.level
+          const earnedXP = result.rewards?.xpEarned || missionXP
+          alert(`🎉 Mission "${mission.title}" completed!\n\n✅ +${earnedXP} XP earned!\n✅ Skills trained: ${mission.requirements.map(req => `${req.skillName} - ${req.targetValue} ${req.unit === 'reps' ? 'Reps' : 'Sec'} x 3 Sets`).join(', ')}\n🏆 Level ${newLevel}!\n\n🚀 ${remainingMissions.length} more missions available!\nChoose your next mission to keep the momentum going!`)
           
           // Show mission selection dialog after user acknowledges
           setTimeout(() => {
@@ -765,53 +872,38 @@ export default function Home() {
       }
       
       // Update mission progress and history
-      const missionXP = mission.xpReward || 50
+      const missionXP = result.rewards?.xpEarned || mission.xpReward || 50
       const now = new Date()
       
-      // Update user stats for mission completion
-      setUserStats(prev => {
-        const newTotalXP = prev.totalXP + missionXP
-        const newLevel = Math.floor(newTotalXP / 100) + 1
-        const newStats = {
-          ...prev,
-          totalXP: newTotalXP,
-          level: newLevel,
-          missionsCompleted: prev.missionsCompleted + 1
-        }
-        localStorage.setItem('userStats', JSON.stringify(newStats))
-        return newStats
-      })
-      
-      // Add to mission history
+      // Update progress history
       setProgressHistory(prev => {
         const newHistory = {
           ...prev,
           missionHistory: [
-            ...prev.missionHistory,
+            ...(prev.missionHistory || []),
             {
               missionTitle: mission.title,
+              missionId: mission.id,
               xp: missionXP,
               timestamp: now.toISOString(),
               skills: mission.requirements.map(req => req.skillName),
-              difficulty: mission.category,
+              difficulty: mission.category || 'Standard',
               type: mission.type
             }
           ],
           xpHistory: [
-            ...prev.xpHistory,
+            ...(prev.xpHistory || []),
             {
-              date: now.toISOString().split('T')[0],
+              date: now.toISOString(),
               xp: missionXP,
-              total: userStats.totalXP + missionXP,
-              source: 'mission',
-              details: mission.title
+              activity: `Protocol Completed: ${mission.title}`
             }
           ]
         }
         localStorage.setItem('progressHistory', JSON.stringify(newHistory))
         return newHistory
       })
-      
+
       console.log(`Mission "${mission.title}" completed! +${missionXP} XP`)
       
     } catch (error) {
@@ -847,8 +939,11 @@ export default function Home() {
     
     setShowMissionSelection(false)
     
+    // Auto-redirect to skills page
+    setCurrentPage('skills')
+    
     console.log(`Started new mission: ${mission.title} (from Mission Center)`)
-    alert(`🚀 New Mission Started!\n\n🎯 Mission: ${mission.title}\n📝 ${mission.description}\n\n✅ Requirements:\n${mission.requirements.map(req => `• ${req.skillName}: ${req.targetValue} ${req.unit}`).join('\n')}\n\nGood luck, warrior!`)
+    alert(`🚀 New Mission Started!\n\n🎯 Mission: ${mission.title}\n📝 ${mission.description}\n\n✅ Redirecting to Skill Tree to complete requirements:\n${mission.requirements.map(req => `• ${req.skillName} - ${req.targetValue} ${req.unit === 'reps' ? 'Reps' : 'Sec'} x 3 Sets`).join('\n')}\n\nGood luck, warrior!`)
   }
   
   const handleSkipMissionSelection = () => {
@@ -887,166 +982,247 @@ export default function Home() {
   }
 
   const renderDashboard = () => (
-    <motion.div
-      className="space-y-8"
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-    >
-      {/* Welcome Header */}
-      <div className="text-center space-y-4">
-        <motion.h1 
-          className="text-4xl md:text-6xl font-bold gradient-text"
-          initial={{ scale: 0.8 }}
-          animate={{ scale: 1 }}
-          transition={{ duration: 0.6 }}
-        >
-          Welcome to CalistheniX
-        </motion.h1>
-        <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-          Transform your bodyweight training into an epic gaming adventure. 
-          Level up your skills, complete missions, and become the ultimate calisthenics warrior.
-        </p>
+    <div className="space-y-12 pb-24">
+      {/* Header with Telemetry feel */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div>
+          <motion.div 
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="flex items-center gap-2 text-bronze font-black text-[10px] tracking-[0.4em] uppercase mb-2"
+          >
+            <Activity className="w-3 h-3" /> Live Operations
+          </motion.div>
+          <h2 className="text-4xl md:text-6xl font-black tracking-tighter uppercase italic leading-none">
+            Training <span className="text-bronze">Terminal</span>
+          </h2>
+        </div>
+        
+        <div className="flex items-center gap-4 bg-iron/5 p-2 rounded-2xl glass-panel border border-gray-200">
+          <div className="px-4 py-2 text-center border-r border-gray-300">
+            <div className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Efficiency</div>
+            <div className="text-lg font-black text-primary">94%</div>
+          </div>
+          <div className="px-4 py-2 text-center">
+            <div className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Division</div>
+            <div className="text-lg font-black text-bronze italic">ELITE</div>
+          </div>
+        </div>
       </div>
 
-      {/* User Profile or Sign In */}
-      <div className="max-w-4xl mx-auto">
-        {session ? (
-          <UserProfile user={currentUser} />
-        ) : (
-          <Card className="text-center p-8 max-w-md mx-auto">
-            <div className="space-y-6">
-              <div>
-                <Zap className="w-16 h-16 mx-auto text-primary mb-4" />
-                <h2 className="text-2xl font-bold mb-2">Ready to Level Up?</h2>
-                <p className="text-muted-foreground">
-                  Sign in to start your calisthenics journey and unlock your potential
+      {!session && (
+        <Card variant="iron" className="p-16 text-center shadow-2xl relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform">
+            <Zap className="w-48 h-48 text-primary" />
+          </div>
+          <div className="relative z-10 space-y-8 max-w-xl mx-auto">
+            <h3 className="text-4xl md:text-5xl font-black tracking-tighter uppercase italic">
+              Identity <span className="text-primary">Required</span>
+            </h3>
+            <p className="text-white/60 font-bold uppercase tracking-widest text-xs">
+              Initialize a session to track telemetry, unlock progression logic, and access mission profiles.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Button variant="cyber" size="xl" onClick={() => signIn('google')}>
+                Authenticate
+              </Button>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {session && (
+        <div className="grid lg:grid-cols-12 gap-8">
+          {/* Left Column: Active Mission & Profile */}
+          <div className="lg:col-span-8 space-y-8">
+            {/* Active Mission Hero */}
+            {activeMission ? (
+              <Card variant="iron" className="p-0 border-none overflow-hidden relative group" animate>
+                <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
+                  <Zap className="w-48 h-48 text-primary" />
+                </div>
+                
+                <div className="p-10 md:p-12 relative z-10">
+                  <div className="flex items-center gap-3 text-bronze mb-6 font-black text-xs tracking-[0.3em] uppercase">
+                    <Target className="w-5 h-5" /> Mission Active
+                  </div>
+                  
+                  <h3 className="text-4xl md:text-6xl font-black text-white italic uppercase tracking-tighter mb-6 leading-none">
+                    {activeMission.title}
+                  </h3>
+                  
+                  <p className="text-white/60 max-w-xl text-lg mb-10 font-medium tracking-tight">
+                    {activeMission.description}
+                  </p>
+
+                  <div className="grid md:grid-cols-2 gap-6 mb-10">
+                    {activeMission.requirements.map((req, i) => {
+                      const absoluteTotal = skillProgress[req.skillName]?.totalReps || 0
+                      const baseline = activeMission.baselines?.[req.skillName] || 0
+                      const current = Math.max(0, absoluteTotal - baseline)
+                      
+                      const progressRaw = (current / (req.targetValue || 10)) * 100
+                      const progress = isNaN(progressRaw) ? 0 : Math.min(progressRaw, 100)
+                      const isDone = current >= (req.targetValue || 10)
+                      
+                      return (
+                        <div key={i} className="p-5 rounded-xl bg-black/40 border border-white/5">
+                          <div className="flex justify-between items-end mb-3">
+                            <span className="text-sm font-black text-white lowercase tracking-tight">{req.skillName}</span>
+                            <div className="text-right">
+                              <div className="text-[9px] font-black text-bronze lowercase tracking-widest mb-1">target: 10 x 3 sets</div>
+                              <span className={cn("text-lg font-black", isDone ? "text-primary" : "text-bronze")}>
+                                {current}<span className="text-[10px] text-white/40 ml-1">/{req.targetValue}</span>
+                              </span>
+                            </div>
+                          </div>
+                          <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
+                            <motion.div 
+                              className={cn("h-full rounded-full shadow-[0_0_10px_rgba(59,130,246,0.3)]", isDone ? "bg-primary" : "bg-bronze")}
+                              initial={{ width: 0 }}
+                              animate={{ width: `${progress}%` }}
+                              transition={{ duration: 1 }}
+                            />
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row gap-4 mb-4">
+                    <Button 
+                      variant="cyber" 
+                      size="lg"
+                      className="px-10 font-black italic shadow-2xl"
+                      onClick={() => setCurrentPage('skills')}
+                    >
+                      Execute Program <ArrowRight className="ml-2 w-5 h-5" />
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="lg"
+                      className="bg-transparent border-white/20 text-white hover:bg-white/10"
+                      onClick={() => {
+                        if (confirm('Cancel current mission? Progression for this mission will be archived.')) {
+                          setActiveMission(null)
+                          localStorage.removeItem('activeMission')
+                        }
+                      }}
+                    >
+                      Abort Mission
+                    </Button>
+                  </div>
+                </div>
+                
+                {/* Bottom Progress Bar for Mission */}
+                <div className="absolute bottom-0 left-0 h-1 w-full bg-white/5">
+                    <div className="h-full bg-gradient-to-r from-primary to-cyan-400 w-[30%]" />
+                </div>
+              </Card>
+            ) : (
+              <Card variant="iron" className="p-16 text-center border-dashed border-white/10 flex flex-col items-center justify-center min-h-[400px]">
+                <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center mb-6">
+                  <Zap className="w-10 h-10 text-white/20" />
+                </div>
+                <h3 className="text-3xl font-black text-white uppercase italic tracking-tighter mb-4">No Active Protocol</h3>
+                <p className="text-white/40 max-w-md mx-auto mb-10 font-bold lowercase tracking-widest text-xs leading-relaxed">
+                  initialize a mission from the central command to begin data collection and physical progression.
                 </p>
-              </div>
-              
-              <div className="space-y-3">
                 <Button 
                   variant="cyber" 
-                  size="lg" 
-                  onClick={() => signIn('google')}
-                  className="w-full"
+                  size="xl" 
+                  onClick={() => setCurrentPage('missions')}
                 >
-                  <LogIn className="w-5 h-5 mr-2" />
-                  Sign in with Google
+                  Initialize Missions
                 </Button>
-                
-                <Button 
-                  variant="outline" 
-                  onClick={() => signIn()}
-                  className="w-full"
-                >
-                  Other sign in options
-                </Button>
-              </div>
-            </div>
-          </Card>
-        )}
-      </div>
+              </Card>
+            )}
 
-      {/* Mission System Info */}
-      {session && (
-        <div className="mb-6">
-          <div className="bg-gradient-to-r from-primary/10 via-secondary/10 to-primary/10 border border-border rounded-lg p-4 max-w-4xl mx-auto">
-            <div className="flex items-center gap-3 mb-2">
-              <Trophy className="w-5 h-5 text-primary" />
-              <h3 className="font-semibold">Mission System</h3>
+            {/* Secondary Layout - Training History/Telemetry */}
+            <div className="grid md:grid-cols-2 gap-8">
+               <Card variant="glass" className="p-8">
+                  <div className="flex items-center gap-4 mb-8">
+                     <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center shadow-lg transform -rotate-3">
+                        <TrendingUp className="w-6 h-6 text-white" />
+                     </div>
+                     <h4 className="text-2xl font-black uppercase tracking-tighter italic">Growth <span className="text-primary">Metrics</span></h4>
+                  </div>
+                  <div className="space-y-4">
+                     {[
+                       { label: 'weekly intensity', val: '+12%', color: 'text-primary' },
+                       { label: 'recovery score', val: '88/100', color: 'text-green-500' },
+                       { label: 'skill mastery', val: `${userStats.skillsCompleted}/28`, color: 'text-bronze' },
+                     ].map((item, i) => (
+                       <div key={i} className="flex justify-between items-center p-4 rounded-xl bg-white border border-gray-200">
+                          <span className="text-[10px] font-black text-muted-foreground lowercase tracking-widest">{item.label}</span>
+                          <span className={cn("text-lg font-black tracking-tight", item.color)}>{item.val}</span>
+                       </div>
+                     ))}
+                  </div>
+               </Card>
+
+               <Card variant="iron" className="p-8">
+                  <div className="flex items-center gap-4 mb-8">
+                     <div className="w-12 h-12 rounded-xl bg-bronze flex items-center justify-center shadow-lg transform rotate-3">
+                        <Trophy className="w-6 h-6 text-white" />
+                     </div>
+                     <h4 className="text-2xl font-black uppercase tracking-tighter italic text-white underline decoration-bronze underline-offset-8">Recent <span className="text-bronze">Vault</span></h4>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    {(!userStats.unlockedBadges || userStats.unlockedBadges.length === 0) ? (
+                       [1, 2, 3, 4, 5, 6].map(i => (
+                         <div key={i} className="aspect-square rounded-xl bg-white/5 border border-white/10 flex items-center justify-center opacity-20 grayscale">
+                            <Trophy className="w-6 h-6 text-white/5" />
+                         </div>
+                       ))
+                    ) : (
+                       userStats.unlockedBadges.slice(-6).reverse().map(badgeId => (
+                         <div key={badgeId} className="aspect-square rounded-xl bg-white/10 border border-bronze/30 flex items-center justify-center group hover:bg-bronze/10 transition-all cursor-help" title={BADGES.find(b => b.id === badgeId)?.title}>
+                            <Trophy className="w-6 h-6 text-bronze" />
+                         </div>
+                       ))
+                    )}
+                  </div>
+               </Card>
             </div>
-            <p className="text-sm text-muted-foreground">
-              💡 <strong>Pro Tip:</strong> Complete multiple missions in the same day, week, or month to maximize your XP gains! 
-              Each mission type resets on schedule: Daily (midnight), Weekly (Monday), Monthly (1st of month).
-            </p>
+          </div>
+
+          {/* Right Column: Profile & Summary */}
+          <div className="lg:col-span-4 space-y-8">
+            <UserProfile user={currentUser} showAnimation={true} />
+            
+            {/* System Diagnostics */}
+            <Card variant="glass" className="bg-steel/30 border-gray-300 p-8">
+               <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-muted-foreground mb-6 text-center">System Diagnostics</h4>
+               <div className="space-y-6">
+                  <div>
+                    <div className="flex justify-between text-[10px] font-black lowercase tracking-widest text-muted-foreground mb-2">
+                       <span>bioavailability</span>
+                       <span className="text-primary">optimized</span>
+                    </div>
+                    <div className="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden">
+                       <div className="h-full bg-primary w-4/5" />
+                    </div>
+                  </div>
+                  <div>
+                    <div className="flex justify-between text-[10px] font-black lowercase tracking-widest text-muted-foreground mb-2">
+                       <span>neural drive</span>
+                       <span className="text-bronze">high</span>
+                    </div>
+                    <div className="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden">
+                       <div className="h-full bg-bronze w-2/3" />
+                    </div>
+                  </div>
+               </div>
+               <div className="mt-8 pt-6 border-t border-gray-300 flex items-center justify-center gap-3">
+                  <div className="w-2 h-2 rounded-full bg-primary animate-ping" />
+                  <span className="text-[10px] font-black lowercase tracking-widest text-muted-foreground">neural link active</span>
+               </div>
+            </Card>
           </div>
         </div>
       )}
-
-      {/* Quick Stats Grid */}
-      {session && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-4xl mx-auto">
-          <motion.div
-            whileHover={{ scale: 1.05 }}
-            transition={{ type: "spring", stiffness: 300 }}
-          >
-            <Card className="text-center p-6 bg-gradient-to-br from-primary/20 to-primary/5">
-              <Target className="w-8 h-8 mx-auto text-primary mb-3" />
-              <div className="text-2xl font-bold text-foreground">{userStats.skillsCompleted}</div>
-              <div className="text-sm text-muted-foreground">Skills Completed</div>
-            </Card>
-          </motion.div>
-          
-          <motion.div
-            whileHover={{ scale: 1.05 }}
-            transition={{ type: "spring", stiffness: 300 }}
-          >
-            <Card className="text-center p-6 bg-gradient-to-br from-secondary/20 to-secondary/5">
-              <Zap className="w-8 h-8 mx-auto text-secondary mb-3" />
-              <div className="text-2xl font-bold text-foreground">{userStats.missionsCompleted}</div>
-              <div className="text-sm text-muted-foreground">Missions Completed</div>
-            </Card>
-          </motion.div>
-          
-          <motion.div
-            whileHover={{ scale: 1.05 }}
-            transition={{ type: "spring", stiffness: 300 }}
-          >
-            <Card className="text-center p-6 bg-gradient-to-br from-purple-500/20 to-purple-500/5">
-              <Trophy className="w-8 h-8 mx-auto text-purple-400 mb-3" />
-              <div className="text-2xl font-bold text-foreground">{userStats.level}</div>
-              <div className="text-sm text-muted-foreground">Current Level</div>
-            </Card>
-          </motion.div>
-          
-          <motion.div
-            whileHover={{ scale: 1.05 }}
-            transition={{ type: "spring", stiffness: 300 }}
-          >
-            <Card className="text-center p-6 bg-gradient-to-br from-orange-500/20 to-orange-500/5">
-              <Calendar className="w-8 h-8 mx-auto text-orange-400 mb-3" />
-              <div className="text-2xl font-bold text-foreground">{userStats.currentStreak}</div>
-              <div className="text-sm text-muted-foreground">Day Streak</div>
-            </Card>
-          </motion.div>
-        </div>
-      )}
-
-      {/* Featured Skills Preview */}
-      <div className="space-y-6">
-        <h2 className="text-2xl font-bold text-center gradient-text">
-          Master These Skills
-        </h2>
-        
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
-          {skills.slice(0, 3).map((skill, index) => (
-            <motion.div
-              key={skill._id || skill.name}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
-            >
-              <SkillCard 
-                skill={skill}
-                isUnlocked={skill.isUnlocked || index === 0}
-                onStartSkill={() => setCurrentPage('skills')}
-              />
-            </motion.div>
-          ))}
-        </div>
-        
-        <div className="text-center">
-          <Button 
-            variant="outline" 
-            onClick={() => setCurrentPage('skills')}
-          >
-            View All Skills
-            <ArrowRight className="w-4 h-4 ml-2" />
-          </Button>
-        </div>
-      </div>
-    </motion.div>
+    </div>
   )
 
   // Filter skills based on active mission
@@ -1077,7 +1253,7 @@ export default function Home() {
         handleCompleteMission(activeMission)
       }
     }
-  }, [completedSkills, activeMission])
+  }, [completedSkills, activeMission, handleCompleteMission])
 
   // Debug logging for mission filtering - moved to useEffect to avoid spam
   useEffect(() => {
@@ -1091,79 +1267,98 @@ export default function Home() {
       session: !!session,
       loadingSkills
     })
-  }, [activeMission, skills.length, session, loadingSkills])
+  }, [activeMission, skills.length, session, loadingSkills, filteredSkills.length, skills])
 
   const renderSkills = () => (
     <motion.div
-      className="space-y-8"
+      className="space-y-12 pb-12"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.5 }}
     >
-      <div className="text-center space-y-4">
-        <h1 className="text-3xl font-bold gradient-text mb-2">
-          {activeMission ? `🎯 ${activeMission.title} Skills` : 'Skill Tree'}
-        </h1>
-        <p className="text-muted-foreground">
-          {activeMission 
-            ? `Complete these ${activeMission.requirements.length} skills to finish your mission and earn ${activeMission.xpReward} XP!` 
-            : 'Master the fundamentals and unlock advanced moves'
-          }
-        </p>
+      <div className="flex flex-col space-y-6">
+        <div>
+          <h1 className="text-4xl md:text-5xl font-black italic uppercase tracking-tighter text-foreground mb-2">
+            {activeMission ? <span className="text-bronze">Active Protocol Component</span> : 'Skill Tree'}
+          </h1>
+          <p className="text-muted-foreground font-bold lowercase tracking-widest text-xs">
+            {activeMission 
+              ? `initialize ${activeMission.requirements.length} sub-routines to authorize completion of protocol: ${activeMission.title}` 
+              : 'master the fundamentals and unlock advanced physical capabilities'
+            }
+          </p>
+        </div>
         
         {/* Mission Progress Bar */}
         {activeMission && (
-          <div className="bg-primary/10 border border-primary/30 rounded-lg p-4 max-w-2xl mx-auto">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold text-primary">Mission Progress</h3>
-              <span className="text-sm text-muted-foreground">
-                {activeMission.requirements.filter(req => completedSkills.includes(req.skillName)).length}/{activeMission.requirements.length} Skills
-              </span>
+          <Card variant="iron" className="p-6 relative overflow-hidden group border-white/10">
+            <div className="absolute top-0 right-0 p-4 opacity-5">
+              <Activity className="w-32 h-32 text-primary" />
             </div>
-            
-            {/* Progress Bar */}
-            <div className="w-full bg-muted rounded-full h-2 mb-3">
-              <div 
-                className="bg-primary rounded-full h-2 transition-all duration-500"
-                style={{
-                  width: `${(activeMission.requirements.filter(req => completedSkills.includes(req.skillName)).length / activeMission.requirements.length) * 100}%`
-                }}
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <div className="flex flex-wrap gap-2">
-                {activeMission.requirements.map((req, idx) => (
-                  <span
-                    key={idx}
-                    className={`px-2 py-1 rounded-full text-xs transition-all ${
-                      completedSkills.includes(req.skillName)
-                        ? 'bg-secondary/20 text-secondary border border-secondary/30'
-                        : 'bg-muted text-muted-foreground'
-                    }`}
+            <div className="relative z-10">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="font-black text-white uppercase italic tracking-tighter text-2xl">Mission Progress</h3>
+                <span className="text-sm font-black text-primary lowercase tracking-[0.2em]">
+                  {activeMission.requirements.filter(req => completedSkills.includes(req.skillName)).length}/{activeMission.requirements.length} skills
+                </span>
+              </div>
+              
+              {/* Progress Bar */}
+              <div className="w-full bg-black/40 rounded-full h-1.5 mb-8 overflow-hidden">
+                <motion.div 
+                  className="bg-gradient-to-r from-primary to-cyan-400 rounded-full h-full"
+                  initial={{ width: 0 }}
+                  animate={{
+                    width: `${isNaN(activeMission.requirements.filter(req => completedSkills.includes(req.skillName)).length / activeMission.requirements.length) ? 0 : (activeMission.requirements.filter(req => completedSkills.includes(req.skillName)).length / activeMission.requirements.length) * 100}%`
+                  }}
+                  transition={{ duration: 1, ease: "easeOut" }}
+                />
+              </div>
+              
+              <div className="space-y-6">
+                <div className="flex flex-wrap gap-3">
+                  {activeMission.requirements.map((req, idx) => {
+                    const absoluteTotal = skillProgress[req.skillName]?.totalReps || 0
+                    const baseline = activeMission.baselines?.[req.skillName] || 0
+                    const isDone = (absoluteTotal - baseline) >= req.targetValue
+                    
+                    return (
+                      <div
+                        key={idx}
+                        className={cn(
+                          "px-4 py-2 rounded-xl text-xs font-black lowercase tracking-tight flex items-center gap-2 border transition-all",
+                          isDone
+                            ? "bg-primary/20 text-primary border-primary/30"
+                            : "bg-white/5 text-white/50 border-white/10"
+                        )}
+                      >
+                        {isDone ? <Zap className="w-3 h-3 fill-primary" /> : <div className="w-1.5 h-1.5 rounded-full bg-white/40 animate-pulse" />} 
+                        {req.skillName} - {req.targetValue} {req.unit === 'reps' ? 'Reps' : 'Sec'} x 3 Sets
+                      </div>
+                    )
+                  })}
+                </div>
+                <div className="flex justify-start gap-4 pt-4 border-t border-white/10">
+                  <Button 
+                    variant="glass" 
+                    size="sm"
+                    className="font-black lowercase tracking-widest text-[10px]" 
+                    onClick={handleCancelMission}
                   >
-                    {completedSkills.includes(req.skillName) ? '✅' : '⏳'} {req.skillName}: {req.targetValue} {req.unit}
-                  </span>
-                ))}
-              </div>
-              <div className="flex justify-center gap-2 mt-4">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={handleCancelMission}
-                >
-                  Cancel Mission
-                </Button>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={() => setCurrentPage('missions')}
-                >
-                  Back to Missions
-                </Button>
+                    abort protocol
+                  </Button>
+                  <Button 
+                    variant="cyber" 
+                    size="sm"
+                    className="font-black lowercase tracking-widest text-[10px]"  
+                    onClick={() => setCurrentPage('missions')}
+                  >
+                    return to mission control
+                  </Button>
+                </div>
               </div>
             </div>
-          </div>
+          </Card>
         )}
         
         {/* Debug Info */}
@@ -1234,8 +1429,8 @@ export default function Home() {
                         <div className="text-xs font-medium text-muted-foreground mb-1">Required Skills:</div>
                         <div className="flex flex-wrap gap-1">
                           {mission.requirements.map((req, idx) => (
-                            <span key={idx} className="text-xs px-2 py-1 rounded-full bg-muted text-muted-foreground">
-                              {req.skillName}: {req.targetValue} {req.unit}
+                            <span key={idx} className="text-xs px-2 py-1 rounded-full bg-muted text-muted-foreground whitespace-nowrap">
+                              {req.skillName} - {req.targetValue} {req.unit === 'reps' ? 'Reps' : 'Sec'} x 3 Sets
                             </span>
                           ))}
                         </div>
@@ -1382,38 +1577,54 @@ export default function Home() {
 
   const renderMissions = () => (
     <motion.div
-      className="space-y-8"
+      className="space-y-12 pb-12"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.5 }}
     >
-      <div className="text-center mb-6">
-        <h1 className="text-3xl font-bold gradient-text mb-2">Mission Center</h1>
-        <p className="text-muted-foreground mb-4">
-          Complete missions to earn XP and unlock new challenges
+      <div className="flex flex-col space-y-2">
+        <h1 className="text-4xl md:text-5xl font-black italic uppercase tracking-tighter text-foreground mb-2">
+          Mission <span className="text-bronze">Control</span>
+        </h1>
+        <p className="text-muted-foreground font-bold lowercase tracking-widest text-xs">
+          select protocols to earn xp and unlock higher physical ranks
         </p>
+      </div>
+
+      {/* Mission Period Info */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl">
+        <Card variant="iron" className="p-6 relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:scale-125 transition-transform">
+            <Zap className="w-24 h-24 text-primary" />
+          </div>
+          <div className="relative z-10 flex flex-col items-start gap-4">
+            <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-primary">Daily Protocols</h4>
+            <div className="text-4xl font-black italic">{getAvailableMissionsByType(initialMissions, 'daily').length}</div>
+            <div className="text-[10px] lowercase font-bold text-muted-foreground tracking-widest">available today</div>
+          </div>
+        </Card>
         
-        {/* Mission Period Info */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-3xl mx-auto mb-6">
-          <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
-            <div className="text-sm font-semibold text-blue-400">Daily Missions</div>
-            <div className="text-xs text-muted-foreground">
-              {getAvailableMissionsByType(initialMissions, 'daily').length} available today
-            </div>
+        <Card variant="iron" className="p-6 relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:scale-125 transition-transform">
+            <Target className="w-24 h-24 text-bronze" />
           </div>
-          <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-3">
-            <div className="text-sm font-semibold text-purple-400">Weekly Missions</div>
-            <div className="text-xs text-muted-foreground">
-              {getAvailableMissionsByType(initialMissions, 'weekly').length} available this week
-            </div>
+          <div className="relative z-10 flex flex-col items-start gap-4">
+            <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-bronze">Weekly Protocols</h4>
+            <div className="text-4xl font-black italic">{getAvailableMissionsByType(initialMissions, 'weekly').length}</div>
+            <div className="text-[10px] lowercase font-bold text-muted-foreground tracking-widest">available this week</div>
           </div>
-          <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-3">
-            <div className="text-sm font-semibold text-orange-400">Monthly Challenges</div>
-            <div className="text-xs text-muted-foreground">
-              {getAvailableMissionsByType(initialMissions, 'monthly').length} available this month
-            </div>
+        </Card>
+        
+        <Card variant="iron" className="p-6 relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:scale-125 transition-transform">
+            <Trophy className="w-24 h-24 text-orange-500" />
           </div>
-        </div>
+          <div className="relative z-10 flex flex-col items-start gap-4">
+            <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-orange-500">Monthly Ranks</h4>
+            <div className="text-4xl font-black italic">{getAvailableMissionsByType(initialMissions, 'monthly').length}</div>
+            <div className="text-[10px] lowercase font-bold text-muted-foreground tracking-widest">available this month</div>
+          </div>
+        </Card>
       </div>
 
       <div className="grid md:grid-cols-2 gap-6">
@@ -1424,7 +1635,7 @@ export default function Home() {
               <div>
                 <h3 className="text-lg font-semibold mb-2">All Missions Completed!</h3>
                 <p className="text-sm">
-                  Incredible! You've completed all available missions for this period.
+                  Incredible! You&apos;ve completed all available missions for this period.
                 </p>
                 <p className="text-xs mt-2 text-muted-foreground">
                   🌅 Daily missions reset at midnight
@@ -1434,7 +1645,7 @@ export default function Home() {
                   📆 Monthly missions reset on the 1st
                 </p>
                 <div className="mt-4">
-                  <p className="text-sm text-secondary">🏆 You're a true CalistheniX Champion!</p>
+                  <p className="text-sm text-secondary">🏆 You&apos;re a true CalistheniX Champion!</p>
                 </div>
               </div>
             </div>
@@ -1490,15 +1701,17 @@ export default function Home() {
 
   const renderAchievements = () => (
     <motion.div
-      className="space-y-8"
+      className="space-y-12 pb-12"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.5 }}
     >
-      <div className="text-center">
-        <h1 className="text-3xl font-bold gradient-text mb-2">Achievements</h1>
-        <p className="text-muted-foreground">
-          Your collection of hard-earned badges and trophies
+      <div className="flex flex-col space-y-2">
+        <h1 className="text-4xl md:text-5xl font-black italic uppercase tracking-tighter text-foreground mb-2">
+          Service <span className="text-bronze">Medals</span>
+        </h1>
+        <p className="text-muted-foreground font-bold lowercase tracking-widest text-xs">
+          authorized physical credentials and commendations
         </p>
       </div>
 
@@ -1519,69 +1732,168 @@ export default function Home() {
     </motion.div>
   )
 
-  const renderProgress = () => (
+  const renderVault = () => (
     <motion.div
-      className="space-y-8"
+      className="space-y-12 pb-12"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.5 }}
     >
-      <div className="text-center space-y-4">
-        <h1 className="text-3xl font-bold gradient-text mb-2">Progress Tracking</h1>
-        <p className="text-muted-foreground">Your journey and achievements over time</p>
+      <div className="flex flex-col space-y-2">
+        <h1 className="text-4xl md:text-5xl font-black italic uppercase tracking-tighter text-foreground mb-2">
+          OPERATIVE <span className="text-bronze">VAULT</span>
+        </h1>
+        <p className="text-muted-foreground font-bold lowercase tracking-widest text-xs">
+          secure storage for tactical accolades and physical milestones
+        </p>
+      </div>
+
+      {(!userStats.unlockedBadges || userStats.unlockedBadges.length === 0) ? (
+        <Card variant="iron" className="p-20 text-center flex flex-col items-center justify-center border-dashed border-white/10 min-h-[400px]">
+           <div className="w-24 h-24 rounded-full bg-white/5 flex items-center justify-center mb-8 border border-white/5 animate-pulse">
+              <Trophy className="w-12 h-12 text-white/10" />
+           </div>
+           <h3 className="text-3xl font-black text-white uppercase italic tracking-tighter mb-4">Vault Empty</h3>
+           <p className="text-white/40 max-w-sm mx-auto font-bold lowercase tracking-widest text-xs leading-relaxed">
+              telemetry records indicate zero achievements unlocked. initialize missions to record permanent accolades.
+           </p>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {BADGES.map((badge) => {
+            const isUnlocked = userStats.unlockedBadges?.includes(badge.id)
+            
+            return (
+              <Card 
+                key={badge.id} 
+                variant="iron" 
+                className={cn(
+                  "p-8 relative overflow-hidden transition-all duration-500",
+                  isUnlocked ? "border-bronze/30 shadow-[0_0_20px_rgba(205,127,50,0.1)]" : "opacity-40 grayscale border-white/5"
+                )}
+              >
+                {!isUnlocked && (
+                  <div className="absolute top-4 right-4">
+                    <Lock className="w-4 h-4 text-white/20" />
+                  </div>
+                )}
+                
+                <div className={cn(
+                  "w-16 h-16 rounded-2xl flex items-center justify-center mb-6 border transition-colors",
+                  isUnlocked ? "bg-bronze/20 border-bronze/40" : "bg-white/5 border-white/10"
+                )}>
+                  <Trophy className={cn("w-8 h-8", isUnlocked ? "text-bronze" : "text-white/20")} />
+                </div>
+                
+                <h4 className={cn("text-xl font-black uppercase italic tracking-tighter mb-2", isUnlocked ? "text-white" : "text-white/40")}>
+                  {badge.title}
+                </h4>
+                
+                <p className="text-xs font-medium text-white/50 lowercase leading-relaxed">
+                  {isUnlocked ? badge.desc : "Requirement: " + badge.desc.split('.')[0] + "."}
+                </p>
+
+                {isUnlocked && (
+                  <div className="mt-6 pt-6 border-t border-white/5 flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-primary animate-ping" />
+                    <span className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">Verified</span>
+                  </div>
+                )}
+              </Card>
+            )
+          })}
+        </div>
+      )}
+    </motion.div>
+  )
+
+  const renderProgress = () => (
+    <motion.div
+      className="space-y-12 pb-12"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5 }}
+    >
+      <div className="flex flex-col space-y-2">
+        <h1 className="text-4xl md:text-5xl font-black italic uppercase tracking-tighter text-foreground mb-2">
+          Telemetry <span className="text-bronze">Data</span>
+        </h1>
+        <p className="text-muted-foreground font-bold lowercase tracking-widest text-xs">
+          historical analysis of physical progressions and capabilities
+        </p>
       </div>
 
       {/* Stats Overview */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto">
-        <Card className="text-center p-4">
-          <div className="text-2xl font-bold text-primary">{userStats.totalXP}</div>
-          <div className="text-sm text-muted-foreground">Total XP</div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-5xl">
+        <Card variant="iron" className="text-center p-6 relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:scale-125 transition-transform">
+            <TrendingUp className="w-16 h-16 text-primary" />
+          </div>
+          <div className="relative z-10 flex flex-col items-center">
+             <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-3">Total XP</div>
+             <div className="text-4xl font-black text-primary italic">{userStats.totalXP}</div>
+          </div>
         </Card>
-        <Card className="text-center p-4">
-          <div className="text-2xl font-bold text-secondary">{userStats.level}</div>
-          <div className="text-sm text-muted-foreground">Level</div>
+        <Card variant="iron" className="text-center p-6 relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:scale-125 transition-transform">
+            <Trophy className="w-16 h-16 text-secondary" />
+          </div>
+          <div className="relative z-10 flex flex-col items-center">
+             <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-3">Level</div>
+             <div className="text-4xl font-black text-bronze italic">{userStats.level}</div>
+          </div>
         </Card>
-        <Card className="text-center p-4">
-          <div className="text-2xl font-bold text-purple-400">{userStats.skillsCompleted}</div>
-          <div className="text-sm text-muted-foreground">Skills</div>
+        <Card variant="iron" className="text-center p-6 relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:scale-125 transition-transform">
+            <Target className="w-16 h-16 text-purple-400" />
+          </div>
+          <div className="relative z-10 flex flex-col items-center">
+             <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-3">Skills Mastered</div>
+             <div className="text-4xl font-black text-purple-400 italic">{userStats.skillsCompleted}</div>
+          </div>
         </Card>
-        <Card className="text-center p-4">
-          <div className="text-2xl font-bold text-orange-400">{userStats.missionsCompleted}</div>
-          <div className="text-sm text-muted-foreground">Missions</div>
+        <Card variant="iron" className="text-center p-6 relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:scale-125 transition-transform">
+            <Zap className="w-16 h-16 text-orange-400" />
+          </div>
+          <div className="relative z-10 flex flex-col items-center">
+             <div className="text-[10px] font-black lowercase tracking-widest text-muted-foreground mb-3">missions done</div>
+             <div className="text-4xl font-black text-orange-400 italic">{userStats.missionsCompleted}</div>
+          </div>
         </Card>
       </div>
 
       <div className="grid md:grid-cols-2 gap-8 max-w-6xl mx-auto">
         {/* Skills History */}
-        <Card>
+        <Card variant="iron" className="border-white/5">
           <Card.Header>
-            <Card.Title className="flex items-center gap-2">
+            <Card.Title className="flex items-center gap-2 font-black italic uppercase tracking-tighter text-white">
               <Target className="w-5 h-5 text-primary" />
               Recent Skills ({progressHistory.skillHistory.length})
             </Card.Title>
           </Card.Header>
           <Card.Content>
-            <div className="space-y-3 max-h-80 overflow-y-auto">
+            <div className="space-y-3 max-h-80 overflow-y-auto pr-2 custom-scrollbar">
               {progressHistory.skillHistory.length === 0 ? (
-                <p className="text-muted-foreground text-center py-8">No skills completed yet. Start training!</p>
+                <p className="text-white/40 text-center py-8 font-black uppercase tracking-widest text-[10px]">No skills completed yet. Initialize training protocols.</p>
               ) : (
                 progressHistory.skillHistory
                   .slice(-10) // Show last 10 skills
                   .reverse()
                   .map((entry, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                    <div key={index} className="flex items-center justify-between p-3 bg-black/40 border border-white/5 rounded-xl">
                       <div className="flex-1">
-                        <div className="font-semibold text-sm">{entry.skillName}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {entry.mission ? `Mission: ${entry.mission}` : 'Free Training'}
+                        <div className="font-black text-xs lowercase tracking-wider text-white">{entry.skillName}</div>
+                        <div className="text-[10px] font-bold text-white/50 tracking-widest lowercase">
+                          {entry.mission ? `protocol: ${entry.mission}` : 'free training'}
                         </div>
-                        <div className="text-xs text-muted-foreground">
+                        <div className="text-[8px] font-mono text-white/30 uppercase mt-1">
                           {new Date(entry.timestamp).toLocaleDateString()}
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="text-sm font-mono text-secondary">+{entry.xp} XP</div>
-                        <div className="text-xs text-muted-foreground">{entry.category}</div>
+                        <div className="text-sm font-mono font-black text-bronze">+{entry.xp} XP</div>
+                        <div className="text-[10px] font-black tracking-widest uppercase text-white/40">{entry.category}</div>
                       </div>
                     </div>
                   ))
@@ -1591,35 +1903,35 @@ export default function Home() {
         </Card>
 
         {/* Mission History */}
-        <Card>
+        <Card variant="iron" className="border-white/5">
           <Card.Header>
-            <Card.Title className="flex items-center gap-2">
-              <Trophy className="w-5 h-5 text-secondary" />
-              Completed Missions ({progressHistory.missionHistory.length})
+            <Card.Title className="flex items-center gap-2 font-black italic uppercase tracking-tighter text-white">
+              <Trophy className="w-5 h-5 text-bronze" />
+              Completed Protocols ({progressHistory.missionHistory.length})
             </Card.Title>
           </Card.Header>
           <Card.Content>
-            <div className="space-y-3 max-h-80 overflow-y-auto">
+            <div className="space-y-3 max-h-80 overflow-y-auto pr-2 custom-scrollbar">
               {progressHistory.missionHistory.length === 0 ? (
-                <p className="text-muted-foreground text-center py-8">No missions completed yet. Start your first mission!</p>
+                <p className="text-white/40 text-center py-8 font-black uppercase tracking-widest text-[10px]">No protocols completed yet. Awaiting initialization.</p>
               ) : (
                 progressHistory.missionHistory
                   .slice(-10) // Show last 10 missions
                   .reverse()
                   .map((entry, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                    <div key={index} className="flex items-center justify-between p-3 bg-black/40 border border-white/5 rounded-xl">
                       <div className="flex-1">
-                        <div className="font-semibold text-sm">{entry.missionTitle}</div>
-                        <div className="text-xs text-muted-foreground">
-                          Skills: {entry.skills.join(', ')}
+                        <div className="font-black text-xs uppercase tracking-wider text-white">{entry.missionTitle}</div>
+                        <div className="text-[10px] font-bold text-white/50 tracking-widest uppercase">
+                          Sub-Routines: {entry.skills?.join(', ') || entry.skillsCompleted?.join(', ') || 'none'}
                         </div>
-                        <div className="text-xs text-muted-foreground">
+                        <div className="text-[8px] font-mono text-white/30 uppercase mt-1">
                           {new Date(entry.timestamp).toLocaleDateString()}
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="text-sm font-mono text-secondary">+{entry.xp} XP</div>
-                        <div className="text-xs text-muted-foreground">{entry.type}</div>
+                        <div className="text-sm font-mono font-black text-bronze">+{entry.xp} xp</div>
+                        <div className="text-[10px] font-black tracking-widest lowercase text-white/40">{entry.type}</div>
                       </div>
                     </div>
                   ))
@@ -1630,29 +1942,29 @@ export default function Home() {
       </div>
 
       {/* XP Progress Chart (Simple Version) */}
-      <Card className="max-w-4xl mx-auto">
+      <Card variant="iron" className="max-w-5xl mx-auto border-white/5">
         <Card.Header>
-          <Card.Title className="flex items-center gap-2">
-            <TrendingUp className="w-5 h-5 text-primary" />
-            XP Progress Over Time
+          <Card.Title className="flex items-center gap-2 font-black italic uppercase tracking-tighter text-white text-2xl">
+            <TrendingUp className="w-6 h-6 text-primary" />
+            Performance Telemetry
           </Card.Title>
         </Card.Header>
         <Card.Content>
           {progressHistory.xpHistory.length === 0 ? (
-            <p className="text-muted-foreground text-center py-8">Start completing skills and missions to see your progress!</p>
+            <p className="text-white/40 text-center py-8 font-black uppercase tracking-widest text-[10px]">Awaiting telemetry data from authorized activities.</p>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-2 bg-black/40 p-4 rounded-xl border border-white/5">
               {progressHistory.xpHistory
                 .slice(-7) // Show last 7 entries
                 .map((entry, index) => (
-                  <div key={index} className="flex items-center justify-between p-2 border-l-4 border-primary/30 pl-4">
+                  <div key={index} className="flex items-center justify-between p-3 border-l-4 border-primary/50 bg-white/5 rounded-r-lg mb-2 pl-4 hover:bg-white/10 transition-colors">
                     <div>
-                      <div className="text-sm font-semibold">{entry.details}</div>
-                      <div className="text-xs text-muted-foreground">{entry.date}</div>
+                      <div className="font-black uppercase tracking-wider text-white text-xs">{entry.details}</div>
+                      <div className="text-[10px] font-mono text-white/40 uppercase mt-1">{entry.date}</div>
                     </div>
                     <div className="text-right">
-                      <div className="text-sm font-mono text-primary">+{entry.xp} XP</div>
-                      <div className="text-xs text-muted-foreground">Total: {entry.total}</div>
+                      <div className="text-lg font-mono font-black text-primary drop-shadow-[0_0_5px_rgba(59,130,246,0.5)]">+{entry.xp} XP</div>
+                      <div className="text-[10px] font-black uppercase tracking-widest text-white/50">Total Baseline: <span className="text-white">{entry.total}</span></div>
                     </div>
                   </div>
                 ))}
@@ -1705,32 +2017,130 @@ export default function Home() {
         return renderAchievements()
       case 'profile':
         return (
-          <div className="max-w-4xl mx-auto space-y-8">
+          <div className="max-w-4xl mx-auto space-y-12 pb-12">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="text-center">
-              <h2 className="text-3xl font-bold gradient-text mb-4">Profile</h2>
-              <p className="text-muted-foreground">Your CalistheniX journey and achievements</p>
+              className="flex flex-col space-y-2">
+              <h2 className="text-4xl md:text-5xl font-black italic uppercase tracking-tighter text-foreground mb-4">Athlete <span className="text-bronze">Profile</span></h2>
+              <p className="text-muted-foreground font-bold uppercase tracking-widest text-xs">Access biometric records and personal progression history</p>
             </motion.div>
-            {session && <UserProfile user={currentUser} />}
+            {session && (
+              <div className="space-y-8">
+                <UserProfile user={currentUser} showAnimation={true} />
+                
+                {/* Visual Performance Graph */}
+                <Card variant="iron" className="p-8 border-white/5 relative overflow-hidden">
+                   <div className="absolute top-0 right-0 p-8 opacity-5">
+                      <TrendingUp className="w-32 h-32 text-primary" />
+                   </div>
+                   
+                   <div className="flex items-center gap-4 mb-10">
+                      <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center border border-primary/30">
+                         <Activity className="w-5 h-5 text-primary" />
+                      </div>
+                      <div>
+                         <h4 className="text-xl font-black uppercase italic tracking-tighter text-white">Biometric <span className="text-primary">Frequency</span></h4>
+                         <p className="text-[10px] font-black uppercase tracking-widest text-primary/40">XP Progression Log</p>
+                      </div>
+                   </div>
+
+                   {progressHistory.xpHistory.length < 2 ? (
+                      <div className="aspect-[21/9] flex flex-col items-center justify-center bg-black/40 rounded-2xl border border-white/5 border-dashed">
+                         <TrendingUp className="w-12 h-12 text-white/10 mb-4" />
+                         <p className="text-[10px] font-black uppercase tracking-widest text-white/20">Awaiting sufficient telemetry data to generate frequency map</p>
+                      </div>
+                   ) : (
+                      <div className="space-y-12">
+                         {/* Simple Bar Chart */}
+                         <div className="aspect-[21/9] flex items-end justify-between gap-2 px-2">
+                            {progressHistory.xpHistory.slice(-14).map((entry, idx) => {
+                               const maxXP = Math.max(...progressHistory.xpHistory.slice(-14).map(e => e.xp), 50)
+                               const height = (entry.xp / maxXP) * 100
+                               return (
+                                  <div key={idx} className="flex-1 flex flex-col items-center group relative">
+                                     {/* Tooltip */}
+                                     <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-primary text-white text-[10px] font-black px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity z-20 pointer-events-none whitespace-nowrap">
+                                        {entry.xp} XP | {entry.date}
+                                     </div>
+                                     
+                                     <motion.div 
+                                        className="w-full bg-primary/20 border-t-2 border-primary rounded-t-sm group-hover:bg-primary/40 transition-colors relative"
+                                        initial={{ height: 0 }}
+                                        animate={{ height: `${height}%` }}
+                                        transition={{ duration: 0.8, delay: idx * 0.05 }}
+                                     >
+                                        <div className="absolute inset-0 bg-gradient-to-t from-transparent to-primary/20" />
+                                     </motion.div>
+                                  </div>
+                               )
+                            })}
+                         </div>
+                         
+                         {/* Legend */}
+                         <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-white/20 pt-4 border-t border-white/5">
+                            <span>{progressHistory.xpHistory.slice(-14)[0]?.date}</span>
+                            <span className="text-primary/40 italic">Telemetry stream: active</span>
+                            <span>{progressHistory.xpHistory.slice(-1)[0]?.date}</span>
+                         </div>
+                      </div>
+                   )}
+                </Card>
+
+                {/* Detailed Log */}
+                <Card variant="iron" className="p-8 border-white/5">
+                   <h4 className="text-xs font-black uppercase tracking-widest text-white/40 mb-6">Activity Logs</h4>
+                   <div className="space-y-3">
+                      {progressHistory.xpHistory.slice(-5).reverse().map((entry, idx) => (
+                         <div key={idx} className="flex items-center justify-between p-4 bg-black/40 border border-white/5 rounded-xl text-xs font-black lowercase tracking-tight">
+                            <div className="flex items-center gap-3">
+                               <div className="w-2 h-2 rounded-full bg-primary/50 shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
+                               <span className="text-white/60">{entry.details}</span>
+                            </div>
+                            <span className="text-primary">+{entry.xp} XP</span>
+                         </div>
+                      ))}
+                   </div>
+                </Card>
+              </div>
+            )}
           </div>
         )
-      case 'progress':
-        return renderProgress()
       case 'settings':
         return (
-          <div className="text-center py-20">
-            <div className="space-y-6">
-              <h2 className="text-2xl font-bold gradient-text">Settings</h2>
-              {session && (
-                <Button variant="destructive" onClick={() => signOut()}>
-                  Sign Out
-                </Button>
-              )}
+          <div className="max-w-4xl mx-auto py-20">
+            <div className="space-y-12">
+              <div className="flex flex-col space-y-2">
+                 <h2 className="text-4xl md:text-5xl font-black italic uppercase tracking-tighter text-foreground mb-4">System <span className="text-primary">Configuration</span></h2>
+                 <p className="text-muted-foreground font-bold uppercase tracking-widest text-xs">Manage terminal authorization and environment parameters</p>
+              </div>
+              
+              <Card variant="iron" className="p-8 border-white/5">
+                <div className="space-y-8">
+                  <div className="flex items-center justify-between p-6 bg-black/40 border border-white/5 rounded-xl">
+                    <div className="space-y-1">
+                      <div className="text-xs font-black uppercase tracking-widest text-white">Terminal Authorization</div>
+                      <div className="text-xs text-white/40 uppercase font-bold tracking-widest">Active Session Management</div>
+                    </div>
+                    {session ? (
+                      <Button variant="glass" onClick={() => signOut()}>
+                        logout
+                      </Button>
+                    ) : (
+                      <Button variant="cyber" onClick={() => signIn('google')}>
+                        login
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </Card>
             </div>
           </div>
         )
+      case 'achievements':
+        return renderVault()
+      case 'progress':
+        return renderProgress()
       default:
         return renderDashboard()
     }

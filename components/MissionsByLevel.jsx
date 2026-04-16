@@ -5,8 +5,10 @@ import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
 import { allMissions, missionLevels, difficultyDescriptions, xpMultipliers } from '@/data/missionsSystem'
 
-export default function MissionsByLevel() {
-  const [selectedLevel, setSelectedLevel] = useState(missionLevels.BEGINNER)
+export default function MissionsByLevel({ userMissionLevel = null }) {
+  // Default to user's current mission level, or BEGINNER if not provided
+  const defaultLevel = userMissionLevel || missionLevels.BEGINNER
+  const [selectedLevel, setSelectedLevel] = useState(defaultLevel)
   const [expandedMission, setExpandedMission] = useState(null)
 
   const levelConfig = {
@@ -36,8 +38,23 @@ export default function MissionsByLevel() {
     }
   }
 
-  const filteredMissions = allMissions.filter(m => m.level === selectedLevel)
+  // Determine which levels are unlocked based on user's mission level
+  const getUnlockedLevels = () => {
+    const allLevels = Object.values(missionLevels)
+    if (!userMissionLevel) return allLevels // Show all if no user level provided
+    
+    const levelOrder = [missionLevels.BEGINNER, missionLevels.FAT_BURN, missionLevels.INTERMEDIATE, missionLevels.PRO]
+    const userLevelIndex = levelOrder.indexOf(userMissionLevel)
+    
+    // User can access their current level and all previous levels
+    return levelOrder.slice(0, userLevelIndex + 1)
+  }
+
+  const unlockedLevels = getUnlockedLevels()
+  const canAccessLevel = (level) => unlockedLevels.includes(level)
+
   const config = levelConfig[selectedLevel]
+  const filteredMissions = allMissions.filter(m => m.level === selectedLevel)
 
   return (
     <div className="w-full bg-gradient-to-br from-slate-900 to-slate-950 rounded-xl p-8 min-h-screen">
@@ -45,26 +62,40 @@ export default function MissionsByLevel() {
       <div className="mb-8 flex gap-3 flex-wrap">
         {Object.values(missionLevels).map(level => {
           const isActive = level === selectedLevel
+          const isAccessible = canAccessLevel(level)
+          const isCurrentUserLevel = level === userMissionLevel
+          
           return (
             <button
               key={level}
-              onClick={() => setSelectedLevel(level)}
-              className={`px-6 py-3 rounded-lg font-semibold transition-all duration-300 ${
-                isActive
+              onClick={() => isAccessible && setSelectedLevel(level)}
+              disabled={!isAccessible}
+              className={`px-6 py-3 rounded-lg font-semibold transition-all duration-300 relative ${
+                !isAccessible
+                  ? 'bg-gray-700 text-gray-500 cursor-not-allowed opacity-50'
+                  : isActive
                   ? `bg-gradient-to-r ${levelConfig[level].color} text-white shadow-lg scale-105`
                   : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
               }`}
             >
               {levelConfig[level].title}
+              {isCurrentUserLevel && (
+                <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full border-2 border-slate-900"></span>
+              )}
+              {!isAccessible && (
+                <span className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full border-2 border-slate-900">
+                  🔒
+                </span>
+              )}
             </button>
           )
         })}
       </div>
 
       {/* Level Info */}
-      <div className={`mb-8 p-6 bg-gradient-to-r ${config.color} rounded-xl text-white`}>
-        <h1 className="text-4xl font-bold mb-2">{config.title}</h1>
-        <p className="text-lg opacity-90">{config.subtitle}</p>
+      <div className={`mb-8 p-6 bg-gradient-to-r ${config.color} rounded-xl text-white shadow-lg`}>
+        <h1 className="text-4xl font-bold mb-2 uppercase italic tracking-tighter">{config.title}</h1>
+        <p className="text-lg opacity-90 font-medium">{config.subtitle}</p>
       </div>
 
       {/* Missions Grid */}

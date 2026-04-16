@@ -5,32 +5,39 @@ import { cn } from '@/lib/utils'
 
 const Card = ({ 
   children, 
-  className,
-  hover = false,
+  className, 
+  hover = true,
+  animate = false,
+  variant = 'iron',
   glow = false,
-  gradient = false,
+  glowColor = 'primary',
   ...props 
 }) => {
-  const baseClasses = 'bg-card border border-border rounded-lg p-6 shadow-lg'
-  
   return (
     <motion.div
       className={cn(
-        baseClasses,
-        hover && 'cursor-pointer',
-        glow && 'glow-primary',
-        gradient && 'bg-gradient-to-br from-card via-card to-muted',
+        'relative rounded-3xl overflow-hidden p-6 transition-all duration-300',
+        variant === 'iron' ? 'iron-card' : 'glass-panel',
+        animate && 'shine',
+        'border border-white/5',
         className
       )}
-      whileHover={hover ? { scale: 1.02, y: -2 } : {}}
-      whileTap={hover ? { scale: 0.98 } : {}}
-      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+      whileHover={hover ? { y: -5, scale: 1.01 } : {}}
+      transition={{ duration: 0.3 }}
       {...props}
     >
-      {children}
+      <div className="relative z-10 h-full">
+        {children}
+      </div>
+      
+      {/* Subtle metallic reflection for Iron cards */}
+      {variant === 'iron' && (
+        <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+      )}
     </motion.div>
   )
 }
+
 
 const CardHeader = ({ children, className, ...props }) => (
   <div className={cn('flex flex-col space-y-1.5 pb-4', className)} {...props}>

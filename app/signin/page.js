@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, Suspense } from 'react'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { signIn, getProviders, useSession } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'react-hot-toast'
@@ -12,11 +12,12 @@ import {
   EyeOff,
   Mail,
   Lock,
-  LogIn,
-  UserPlus
+  ChevronRight,
+  Shield,
+  Dumbbell
 } from 'lucide-react'
 import Link from 'next/link'
-
+import { cn } from '@/lib/utils'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 
@@ -27,6 +28,7 @@ function SignInContent() {
   })
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false)
   const [providers, setProviders] = useState({})
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -36,55 +38,23 @@ function SignInContent() {
   const error = searchParams.get('error')
 
   useEffect(() => {
-    // Redirect if already signed in
     if (session) {
       router.push(callbackUrl)
     }
   }, [session, router, callbackUrl])
 
   useEffect(() => {
-    // Get available providers
     getProviders().then(setProviders)
   }, [])
 
-  useEffect(() => {
-    // Show error message if present
-    if (error) {
-      const errorMessages = {
-        CredentialsSignin: 'Invalid email or password',
-        OAuthSignin: 'Error with OAuth provider',
-        OAuthCallback: 'Error with OAuth callback',
-        OAuthCreateAccount: 'Could not create OAuth account',
-        EmailCreateAccount: 'Could not create account',
-        Callback: 'Callback error',
-        OAuthAccountNotLinked: 'Account not linked. Try a different sign-in method.',
-        EmailSignin: 'Check your email for the sign-in link',
-        CredentialsCallback: 'Credentials callback error',
-        default: 'An error occurred during sign in'
-      }
-      
-      const message = errorMessages[error] || errorMessages.default
-      toast.error(message)
-    }
-  }, [error])
-
   const handleInputChange = (e) => {
     const { name, value } = e.target
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }))
+    setFormData(prev => ({ ...prev, [name]: value }))
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setIsLoading(true)
-
-    if (!formData.email || !formData.password) {
-      toast.error('Email and password are required')
-      setIsLoading(false)
-      return
-    }
 
     try {
       const result = await signIn('credentials', {
@@ -95,57 +65,100 @@ function SignInContent() {
       })
 
       if (result?.error) {
-        toast.error('Invalid email or password')
+        toast.error('authorization failed')
       } else if (result?.ok) {
-        toast.success('Successfully signed in!')
         router.push(callbackUrl)
       }
     } catch (error) {
-      toast.error('An error occurred during sign in')
+      toast.error('system error')
     } finally {
       setIsLoading(false)
     }
   }
 
-  if (session) {
-    return null // Will redirect
+  const handleGoogleSignIn = () => {
+    setIsGoogleLoading(true)
+    signIn('google', { callbackUrl })
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-6">
-      <div className="w-full max-w-md space-y-6">
-        {/* Back to Home */}
-        <Link href="/" className="inline-flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors">
-          <ArrowLeft className="w-4 h-4" />
-          Back to Home
-        </Link>
+    <div className="min-h-screen bg-[#0E1012] flex flex-col items-center p-4 sm:p-6 font-sans relative overflow-x-hidden pt-12 sm:pt-20 pb-12 sm:pb-20">
+      {/* Background Ambience */}
+      <div className="absolute inset-0 pointer-events-none opacity-20 steel-texture" />
+      
+      <motion.div 
+        className="w-full max-w-[420px] relative z-10"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+      >
+        <div className="bg-[#1A1C1E] rounded-[24px] sm:rounded-[32px] p-6 sm:p-10 shadow-2xl border border-white/5">
+          <h1 className="text-white text-2xl sm:text-3xl font-black text-center mb-6 sm:mb-10 tracking-tight leading-tight uppercase">
+            Welcome Back<br/>Warrior.
+          </h1>
 
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="text-center"
-        >
-          <div className="w-16 h-16 mx-auto mb-4 rounded bg-gradient-to-r from-primary to-secondary flex items-center justify-center">
-            <Zap className="w-8 h-8 text-black" />
-          </div>
-          <h1 className="text-3xl font-bold gradient-text mb-2">Welcome Back</h1>
-          <p className="text-muted-foreground">Sign in to continue your calisthenics journey</p>
-        </motion.div>
+          <div className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="space-y-2">
+                <label className="text-[11px] font-black text-white/60 ml-1">Email Address</label>
+                <div className="relative">
+                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20" />
+                  <input
+                    type="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    className="w-full h-[48px] sm:h-[56px] pl-12 pr-4 bg-white/5 border border-white/10 rounded-xl sm:rounded-2xl text-white outline-none focus:border-primary/50 transition-all text-sm"
+                    placeholder="Enter your email"
+                    required
+                  />
+                </div>
+              </div>
 
-        {/* OAuth Providers */}
-        {providers?.google && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.1 }}
-          >
-            <Button
-              onClick={() => signIn('google', { callbackUrl })}
-              variant="outline"
-              size="xl"
-              className="w-full flex items-center justify-center gap-3"
+              <div className="space-y-2">
+                <label className="text-[11px] font-black text-white/60 ml-1">Password</label>
+                <div className="relative">
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20" />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    name="password"
+                    value={formData.password}
+                    onChange={handleInputChange}
+                    className="w-full h-[48px] sm:h-[56px] pl-12 pr-12 bg-white/5 border border-white/10 rounded-xl sm:rounded-2xl text-white outline-none focus:border-primary/50 transition-all text-sm"
+                    placeholder="Enter your password"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 hover:text-white"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full h-[54px] sm:h-[56px] bg-gradient-to-r from-[#B8860B] to-[#DAA520] hover:brightness-110 text-black font-black uppercase tracking-widest text-sm rounded-xl sm:rounded-2xl shadow-lg transition-all active:scale-[0.98] disabled:opacity-70 mt-2 sm:mt-4 flex items-center justify-center font-bold"
+              >
+                {isLoading ? 'Processing...' : 'Sign In'}
+              </button>
+            </form>
+
+            <div className="relative py-8">
+              <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-white/10" /></div>
+              <div className="relative flex justify-center">
+                <span className="bg-[#1A1C1E] px-4 text-[10px] font-black uppercase tracking-[0.2em] text-white/40">
+                  Or continue with
+                </span>
+              </div>
+            </div>
+
+            <button
+              onClick={handleGoogleSignIn}
+              disabled={isGoogleLoading}
+              className="w-full bg-[#1877F2] hover:bg-[#166FE5] text-white h-[56px] rounded-xl sm:rounded-2xl font-bold flex items-center justify-center gap-3 transition-all active:scale-95 disabled:opacity-70 uppercase text-[12px] tracking-wider"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24">
                 <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -154,151 +167,26 @@ function SignInContent() {
                 <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
               </svg>
               Continue with Google
-            </Button>
-          </motion.div>
-        )}
-
-        {/* Divider */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.15 }}
-          className="relative"
-        >
-          <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t border-border" />
+            </button>
           </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-background px-2 text-muted-foreground">Or continue with email</span>
-          </div>
-        </motion.div>
+        </div>
 
-        {/* Email/Password Form */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-        >
-          <Card className="p-6">
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Email */}
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium mb-2">
-                  Email Address
-                </label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <input
-                    type="email"
-                    id="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleInputChange}
-                    className="w-full pl-10 pr-4 py-3 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                    placeholder="Enter your email"
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* Password */}
-              <div>
-                <label htmlFor="password" className="block text-sm font-medium mb-2">
-                  Password
-                </label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    id="password"
-                    name="password"
-                    value={formData.password}
-                    onChange={handleInputChange}
-                    className="w-full pl-10 pr-12 py-3 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                    placeholder="Enter your password"
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-primary transition-colors"
-                  >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-              </div>
-
-              {/* Forgot Password Link */}
-              <div className="text-right">
-                <Link href="/forgot-password" className="text-sm text-blue-600 hover:text-blue-500 transition-colors">
-                  Forgot your password?
-                </Link>
-              </div>
-
-              {/* Submit Button */}
-              <Button
-                type="submit"
-                variant="cyber"
-                size="xl"
-                disabled={isLoading}
-                className="w-full flex items-center justify-center gap-3"
-              >
-                {isLoading ? (
-                  <motion.div
-                    className="w-5 h-5 border-2 border-white border-t-transparent rounded-full"
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                  />
-                ) : (
-                  <>
-                    <LogIn className="w-5 h-5" />
-                    Sign In
-                  </>
-                )}
-              </Button>
-            </form>
-          </Card>
-        </motion.div>
-
-        {/* Sign Up Link */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.3 }}
-          className="text-center space-y-4"
-        >
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t border-border" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-background px-2 text-muted-foreground">New to CalistheniX?</span>
-            </div>
-          </div>
-          
-          <Link href="/signup">
-            <Button 
-              variant="outline" 
-              size="xl"
-              className="w-full flex items-center justify-center gap-3"
-            >
-              <UserPlus className="w-5 h-5" />
-              Create Account
-            </Button>
+        <div className="mt-8 text-center">
+          <Link 
+            href="/signup" 
+            className="text-[13px] font-bold text-white/40 hover:text-white underline underline-offset-4 decoration-white/10"
+          >
+            create account
           </Link>
-        </motion.div>
-      </div>
+        </div>
+      </motion.div>
     </div>
   )
 }
 
 export default function SignInPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
-        <div className="text-primary">Loading...</div>
-      </div>
-    }>
+    <Suspense fallback={null}>
       <SignInContent />
     </Suspense>
   )

@@ -16,11 +16,13 @@ const Progress = ({
   const percentage = Math.min((value / max) * 100, 100)
   
   const variants = {
-    primary: 'bg-primary',
+    primary: 'bg-primary shadow-[0_0_10px_rgba(59,130,246,0.5)]',
     secondary: 'bg-secondary',
     accent: 'bg-accent',
     destructive: 'bg-destructive',
-    gradient: 'bg-gradient-to-r from-primary to-secondary'
+    gradient: 'bg-gradient-to-r from-primary to-secondary',
+    bronze: 'bg-bronze shadow-[0_0_10px_rgba(205,127,50,0.5)]',
+    iron: 'bg-iron border border-white/20'
   }
 
   return (

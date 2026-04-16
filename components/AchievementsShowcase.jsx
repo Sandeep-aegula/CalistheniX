@@ -126,7 +126,7 @@ export default function AchievementsShowcase() {
           <div className="mb-6 p-6 bg-purple-500/10 border border-purple-500/30 rounded-xl">
             <h2 className="text-2xl font-bold text-purple-300 mb-2">Milestone Achievement Titles</h2>
             <p className="text-slate-300">
-              Progress through ranks by completing workouts and earning skill badges. Reach "Legendary Athlete" after 28 consecutive days of all missions!
+              Progress through ranks by completing workouts and earning skill badges. Reach &quot;Legendary Athlete&quot; after 28 consecutive days of all missions!
             </p>
           </div>
 

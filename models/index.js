@@ -36,7 +36,7 @@ const missionSchema = new mongoose.Schema({
   category: { 
     type: String, 
     required: true,
-    enum: ['strength', 'endurance', 'skill', 'consistency', 'challenge']
+    enum: ['push', 'pull', 'core', 'legs', 'combination', 'endurance', 'leverage', 'strength', 'skill', 'consistency', 'challenge']
   },
   level: {
     type: String,
@@ -151,7 +151,7 @@ const userSchema = new mongoose.Schema({
   
   // Mission Progress
   activeMissions: [{
-    missionId: { type: mongoose.Schema.Types.ObjectId, ref: 'Mission' },
+    missionId: { type: String, required: true }, // String ID from static data
     progress: [{
       skillName: String,
       currentValue: { type: Number, default: 0 },
@@ -164,7 +164,7 @@ const userSchema = new mongoose.Schema({
   }],
   
   completedMissions: [{
-    missionId: { type: mongoose.Schema.Types.ObjectId, ref: 'Mission' },
+    missionId: { type: String, required: true }, // String ID from static data
     completedAt: { type: Date, default: Date.now },
     xpEarned: Number
   }],

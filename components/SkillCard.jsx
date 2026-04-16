@@ -35,10 +35,11 @@ const SkillCard = ({
       {...props}
     >
       <Card 
+        variant="iron"
         className={cn(
           'relative overflow-hidden transition-all duration-300',
-          isUnlocked ? 'border-primary/50 hover:border-primary' : 'border-muted-foreground/30',
-          isCompleted && 'border-secondary glow-secondary',
+          isUnlocked ? 'border-primary/20 hover:border-primary/50' : 'border-white/5',
+          isCompleted && 'border-bronze glow-bronze',
           !isUnlocked && 'opacity-60'
         )}
         hover={isUnlocked}
@@ -46,18 +47,18 @@ const SkillCard = ({
       >
         {/* Skill Status Indicator */}
         <div className="absolute top-4 right-4">
-          {!isUnlocked ? (
-            <Lock className="w-5 h-5 text-muted-foreground" />
-          ) : isCompleted ? (
-            <CheckCircle className="w-5 h-5 text-secondary" />
-          ) : (
-            <div className="w-5 h-5 rounded-full border-2 border-primary/50" />
-          )}
+           {!isUnlocked ? (
+             <Lock className="w-5 h-5 text-white/20" />
+           ) : isCompleted ? (
+             <CheckCircle className="w-5 h-5 text-bronze" />
+           ) : (
+             <div className="w-5 h-5 rounded-full border-2 border-primary/50" />
+           )}
         </div>
 
         {/* Difficulty Badge */}
         <div className={cn(
-          'absolute top-4 left-4 px-2 py-1 rounded-full text-xs font-mono',
+          'absolute top-4 left-4 px-2 py-1 rounded-sm text-[10px] font-black lowercase tracking-widest',
           difficultyConfig.bg,
           difficultyConfig.color
         )}>
@@ -70,44 +71,44 @@ const SkillCard = ({
 
         <Card.Header className="pt-12">
           <Card.Title className={cn(
-            'text-lg',
-            isUnlocked ? 'text-foreground' : 'text-muted-foreground'
+            'text-2xl font-black italic uppercase tracking-tighter',
+            isUnlocked ? 'text-white' : 'text-white/40'
           )}>
             {skill.name}
           </Card.Title>
-          <Card.Description>
+          <Card.Description className="text-white/60 text-xs tracking-wide">
             {skill.description}
           </Card.Description>
         </Card.Header>
 
-        <Card.Content className="space-y-4">
+        <Card.Content className="space-y-6">
           {/* Skill Stats */}
-          <div className="grid grid-cols-2 gap-4 text-sm">
+          <div className="grid grid-cols-2 gap-4 text-sm bg-black/40 p-4 rounded-xl border border-white/5">
             <div>
-              <span className="text-muted-foreground">Target:</span>
-              <div className="font-mono text-primary">
-                {skill.targetReps} {skill.targetReps === 1 ? 'rep' : 'reps'}
+              <span className="text-[10px] font-black tracking-widest text-white/40 lowercase">target</span>
+              <div className="font-mono text-primary font-bold">
+                {skill.targetReps || 10} reps x 3 sets
               </div>
             </div>
             <div>
-              <span className="text-muted-foreground">XP Reward:</span>
-              <div className="font-mono text-secondary">+{skill.xpReward}</div>
+              <span className="text-[10px] font-black tracking-widest text-white/40 lowercase">xp reward</span>
+              <div className="font-mono text-bronze font-bold">+{skill.xpReward}</div>
             </div>
           </div>
 
           {/* Progress Bar for Unlocked Skills */}
           {isUnlocked && (
             <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>Best Performance</span>
-                <span className="font-mono">
+              <div className="flex justify-between text-[10px] font-black lowercase tracking-widest text-white/50">
+                <span>best performance</span>
+                <span className="font-mono text-primary">
                   {progress?.reps || 0}/{skill.targetReps}
                 </span>
               </div>
               <Progress 
                 value={progress?.reps || 0} 
                 max={skill.targetReps}
-                variant={isCompleted ? 'secondary' : 'primary'}
+                variant={isCompleted ? 'bronze' : 'primary'}
                 animated={true}
               />
             </div>
@@ -116,12 +117,12 @@ const SkillCard = ({
           {/* Prerequisites */}
           {skill.prerequisites && skill.prerequisites.length > 0 && (
             <div className="space-y-2">
-              <span className="text-sm text-muted-foreground">Prerequisites:</span>
-              <div className="flex flex-wrap gap-1">
+              <span className="text-[10px] font-black tracking-widest text-white/40 lowercase">prerequisites:</span>
+              <div className="flex flex-wrap gap-2">
                 {skill.prerequisites.map((prereq, index) => (
                   <span
                     key={index}
-                    className="text-xs px-2 py-1 bg-muted rounded-full text-muted-foreground"
+                    className="text-[10px] px-2 py-1 bg-white/5 rounded-sm text-white/60 lowercase tracking-widest font-black"
                   >
                     {prereq}
                   </span>
@@ -133,9 +134,9 @@ const SkillCard = ({
 
         <Card.Footer>
           <Button
-            variant={isCompleted ? 'secondary' : 
+            variant={isCompleted ? 'outline' : 
                     isRequiredForActiveMission ? 'primary' : 
-                    isUnlocked ? 'outline' : 'outline'}
+                    isUnlocked ? 'cyber' : 'outline'}
             disabled={!isUnlocked || isCompleted}
             onClick={(e) => {
               e.preventDefault()

@@ -1,18 +1,20 @@
 'use client'
 
-import { motion } from 'framer-motion'
+import { motion, useScroll, useTransform } from 'framer-motion'
 import { signIn, useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { 
   Zap, 
   Target, 
   Trophy, 
   ArrowRight,
-  LogIn,
-  Star,
-  CheckCircle
+  CheckCircle,
+  Activity,
+  Flame,
+  Dumbbell,
+  BicepsFlexed
 } from 'lucide-react'
 
 import Card from '@/components/ui/Card'
@@ -21,8 +23,13 @@ import Button from '@/components/ui/Button'
 export default function Home() {
   const { data: session, status } = useSession()
   const router = useRouter()
+  const { scrollYProgress } = useScroll({
+    offset: ["start start", "end start"]
+  })
 
-  // Redirect to dashboard if already signed in
+  const opacity = useTransform(scrollYProgress, [0, 0.4], [1, 0])
+  const y = useTransform(scrollYProgress, [0, 0.4], [0, -50])
+
   useEffect(() => {
     if (session) {
       router.push('/dashboard')
@@ -31,9 +38,9 @@ export default function Home() {
 
   if (status === 'loading') {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <motion.div
-          className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full"
+          className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full"
           animate={{ rotate: 360 }}
           transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
         />
@@ -41,57 +48,52 @@ export default function Home() {
     )
   }
 
-  if (session) {
-    return null // Will redirect to dashboard
-  }
+  if (session) return null
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background text-foreground selection:bg-primary/30">
       {/* Navigation Header */}
-      <header className="border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container mx-auto px-6 py-4">
+      <header className="fixed top-0 left-0 right-0 z-50 glass-panel border-b border-gray-300">
+        <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <motion.div 
-              className="flex items-center gap-2"
-              whileHover={{ scale: 1.05 }}
+              className="flex items-center gap-3"
+              whileHover={{ scale: 1.02 }}
             >
-              <div className="w-8 h-8 rounded bg-gradient-to-r from-primary to-secondary flex items-center justify-center">
-                <Zap className="w-5 h-5 text-black" />
+              <div className="w-10 h-10 rounded-xl bg-iron flex items-center justify-center shadow-lg">
+                <Dumbbell className="w-6 h-6 text-bronze" />
               </div>
-              <h1 className="text-2xl font-bold gradient-text">
-                CalistheniX
+              <h1 className="text-2xl font-black tracking-tighter uppercase italic">
+                CalistheniX <span className="text-bronze not-italic font-light">Elite</span>
               </h1>
             </motion.div>
             
-            {/* Desktop Navigation */}
-            <nav className="hidden md:flex items-center gap-8">
-              <a href="#features" className="text-muted-foreground hover:text-primary transition-colors">
-                Features
-              </a>
-              <a href="#skills" className="text-muted-foreground hover:text-primary transition-colors">
-                Skills
-              </a>
-              <a href="#about" className="text-muted-foreground hover:text-primary transition-colors">
-                About
-              </a>
+            <nav className="hidden md:flex items-center gap-10">
+              {['Missions', 'Skills', 'Achievements'].map((item) => (
+                <Link 
+                  key={item} 
+                  href={`#${item.toLowerCase()}`}
+                  className="text-xs font-bold text-muted-foreground hover:text-black transition-colors tracking-widest lowercase"
+                >
+                  {item}
+                </Link>
+              ))}
             </nav>
 
-            {/* Auth Buttons */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-4">
               <Button 
                 variant="ghost" 
                 onClick={() => signIn()}
-                className="hidden sm:flex items-center gap-2"
+                className="hidden sm:flex text-xs font-bold"
               >
-                Sign In
+                login
               </Button>
               <Button 
                 variant="cyber"
                 onClick={() => signIn('google')}
-                className="flex items-center gap-2"
+                className="text-xs px-8"
               >
-                <LogIn className="w-4 h-4" />
-                Get Started
+                get started
               </Button>
             </div>
           </div>
@@ -99,169 +101,135 @@ export default function Home() {
       </header>
 
       {/* Hero Section */}
-      <section className="py-20 px-6">
-        <div className="container mx-auto text-center space-y-8">
+      <section className="relative min-h-[90vh] flex items-center justify-center pt-24 overflow-hidden">
+        {/* Background Texture */}
+        <div className="absolute inset-0 z-0 opacity-20 pointer-events-none steel-texture" />
+        
+        <motion.div 
+          className="container mx-auto px-6 text-center z-10"
+          style={{ opacity, y }}
+        >
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
+            transition={{ duration: 0.8 }}
           >
-            <h1 className="text-5xl md:text-7xl font-bold gradient-text mb-6">
-              Game of Gains
-            </h1>
-            <p className="text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
-              Transform your bodyweight training into an epic RPG adventure. 
-              Level up your skills, complete missions, and become the ultimate calisthenics warrior.
-            </p>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-            className="flex flex-col sm:flex-row gap-4 justify-center items-center"
-          >
-            <Button 
-              variant="cyber" 
-              size="xl" 
-              onClick={() => signIn('google')}
-              className="flex items-center gap-3"
-            >
-              <Zap className="w-6 h-6" />
-              Start Your Journey
-              <ArrowRight className="w-6 h-6" />
-            </Button>
+            <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-iron text-white mb-10 shadow-xl border border-white/5">
+              <Flame className="w-4 h-4 text-bronze animate-pulse" />
+              <span className="text-[10px] font-black tracking-[0.3em] lowercase">sector: outdoor strength</span>
+            </div>
             
-            <Button 
-              variant="outline" 
-              size="xl"
-              onClick={() => signIn()}
-            >
-              Sign In
-            </Button>
-          </motion.div>
-
-          <div className="flex items-center justify-center gap-4 mt-6">
-            <p className="text-sm text-muted-foreground">
-              Don&apos;t have an account?
+            <h1 className="text-[10vw] md:text-8xl font-black tracking-tighter mb-8 leading-[0.85] uppercase">
+              GRIT. GEAR.<br />
+              <span className="text-bronze">STRENGTH.</span>
+            </h1>
+            
+            <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed mb-12 font-medium lowercase">
+              forge your body in the raw landscape of calisthenics. 
+              metallic aesthetics meet elite-level programming.
             </p>
-            <Link 
-              href="/signup" 
-              className="text-sm font-medium text-primary hover:underline"
-            >
-              Create one here
-            </Link>
-          </div>
-        </div>
-      </section>
 
-      {/* Features Section */}
-      <section id="features" className="py-20 px-6 bg-muted/50">
-        <div className="container mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="text-center mb-16"
-          >
-            <h2 className="text-4xl font-bold gradient-text mb-4">
-              Why Choose CalistheniX?
-            </h2>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Experience bodyweight training like never before with our gamified approach
-            </p>
-          </motion.div>
-
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.1 }}
-            >
-              <Card className="h-full text-center p-8 bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
-                <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-primary/20 flex items-center justify-center">
-                  <Target className="w-8 h-8 text-primary" />
-                </div>
-                <h3 className="text-xl font-bold mb-4">Progressive Skill Tree</h3>
-                <p className="text-muted-foreground">
-                  Unlock advanced calisthenics moves step by step. Master the basics to access legendary skills like the human flag and one-arm pull-up.
-                </p>
-              </Card>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.2 }}
-            >
-              <Card className="h-full text-center p-8 bg-gradient-to-br from-secondary/10 to-secondary/5 border-secondary/20">
-                <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-secondary/20 flex items-center justify-center">
-                  <Zap className="w-8 h-8 text-secondary" />
-                </div>
-                <h3 className="text-xl font-bold mb-4">Mission System</h3>
-                <p className="text-muted-foreground">
-                  Complete daily, weekly, and monthly challenges. Earn XP, unlock achievements, and stay motivated with structured goals.
-                </p>
-              </Card>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.3 }}
-            >
-              <Card className="h-full text-center p-8 bg-gradient-to-br from-purple-500/10 to-purple-500/5 border-purple-400/20">
-                <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-purple-500/20 flex items-center justify-center">
-                  <Trophy className="w-8 h-8 text-purple-400" />
-                </div>
-                <h3 className="text-xl font-bold mb-4">Achievement System</h3>
-                <p className="text-muted-foreground">
-                  Collect badges, track streaks, and show off your progress. From common to legendary achievements await you.
-                </p>
-              </Card>
-            </motion.div>
-          </div>
-        </div>
-      </section>
-
-      {/* Skills Preview */}
-      <section id="skills" className="py-20 px-6">
-        <div className="container mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="text-center mb-16"
-          >
-            <h2 className="text-4xl font-bold gradient-text mb-4">
-              Master Every Move
-            </h2>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              From beginner push-ups to advanced human flags, unlock your potential
-            </p>
-          </motion.div>
-
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {[
-              { name: 'Push-up', difficulty: 1, category: 'Foundation' },
-              { name: 'Pull-up', difficulty: 3, category: 'Strength' },
-              { name: 'L-sit', difficulty: 5, category: 'Core' },
-              { name: 'Human Flag', difficulty: 10, category: 'Legendary' }
-            ].map((skill, index) => (
-              <motion.div
-                key={skill.name}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.1 * index }}
+            <div className="flex flex-col sm:flex-row gap-6 justify-center items-center">
+              <Button 
+                variant="cyber" 
+                size="xl" 
+                onClick={() => signIn('google')}
+                className="min-w-[260px] shadow-2xl"
               >
-                <Card className="text-center p-6 hover:border-primary/50 transition-colors">
-                  <div className="flex justify-center mb-3">
-                    {Array.from({ length: skill.difficulty }, (_, i) => (
-                      <Star key={i} className="w-3 h-3 fill-primary text-primary" />
-                    ))}
+                start training <ArrowRight className="ml-2 w-5 h-5" />
+              </Button>
+              
+              <Button 
+                variant="secondary" 
+                size="xl"
+                className="min-w-[260px] bg-white border-2 border-iron"
+                onClick={() => document.getElementById('missions')?.scrollIntoView({ behavior: 'smooth' })}
+              >
+                Explore Protocol
+              </Button>
+            </div>
+          </motion.div>
+        </motion.div>
+
+        {/* Floating Iron Panels */}
+        <div className="absolute bottom-[-10%] left-[-5%] w-64 h-64 bg-iron rotate-12 opacity-5 rounded-[40px] pointer-events-none" />
+        <div className="absolute top-[20%] right-[-5%] w-80 h-80 bg-iron -rotate-12 opacity-5 rounded-[60px] pointer-events-none" />
+      </section>
+
+      {/* Stats/Social Proof (Metallic Bar) */}
+      <div className="bg-iron py-16 px-6 overflow-hidden">
+        <div className="container mx-auto">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-12 text-center">
+            {[
+              { val: '28+', label: 'skills' },
+              { val: '4 wks', label: 'program' },
+              { val: '150+', label: 'missions' },
+              { val: 'elite', label: 'status' },
+            ].map((stat, i) => (
+              <motion.div 
+                key={i}
+                initial={{ opacity: 0, scale: 0.9 }}
+                whileInView={{ opacity: 1, scale: 1 }}
+                viewport={{ once: true }}
+              >
+                <div className="text-4xl md:text-5xl font-black text-bronze tracking-tighter mb-2">{stat.val}</div>
+                <div className="text-[10px] text-white/40 tracking-[0.4em] lowercase font-bold">{stat.label}</div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Missions Grid */}
+      <section id="missions" className="py-32 px-6">
+        <div className="container mx-auto">
+          <div className="flex flex-col items-center mb-24 text-center">
+            <h2 className="text-4xl md:text-6xl font-black mb-6 tracking-tighter uppercase italic">
+              THE <span className="text-bronze">IRON</span> PROTOCOL
+            </h2>
+            <div className="h-1 w-24 bg-bronze rounded-full" />
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8">
+            {[
+              { 
+                icon: <Target className="w-8 h-8" />, 
+                title: 'Phase I: Concrete', 
+                desc: 'Master the foundations of the sport. Build the structural integrity required for elite flight.',
+                tag: 'Foundational'
+              },
+              { 
+                icon: <Activity className="w-8 h-8" />, 
+                title: 'Phase II: Steel', 
+                desc: 'Increase tension. Master leverage holds like the L-Sit and Pull-up variations.',
+                tag: 'Intermediate'
+              },
+              { 
+                icon: <BicepsFlexed className="w-8 h-8" />, 
+                title: 'Phase III: Bronze', 
+                desc: 'Reach legendary status. Complete muscle-ups and human flag progressions.',
+                tag: 'Legendary'
+              }
+            ].map((item, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.1 }}
+              >
+                <Card variant="iron" className="h-full p-12 group" animate={i === 2}>
+                  <div className="text-bronze mb-8 bg-white/5 p-4 rounded-2xl inline-block group-hover:scale-110 transition-transform">
+                    {item.icon}
                   </div>
-                  <h3 className="font-bold mb-2">{skill.name}</h3>
-                  <p className="text-sm text-muted-foreground">{skill.category}</p>
+                  <div className="text-[10px] font-bold tracking-[0.3em] lowercase text-muted-foreground mb-4">{item.tag}</div>
+                  <h3 className="text-2xl font-black mb-4 uppercase tracking-tight">{item.title}</h3>
+                  <p className="text-white/60 leading-relaxed font-medium lowercase">
+                    {item.desc}
+                  </p>
+                  <Link href="/signup" className="mt-8 flex items-center gap-2 text-bronze font-bold text-sm hover:translate-x-2 transition-transform lowercase tracking-widest">
+                    unlock <ArrowRight className="w-4 h-4" />
+                  </Link>
                 </Card>
               </motion.div>
             ))}
@@ -269,64 +237,57 @@ export default function Home() {
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section id="about" className="py-20 px-6 bg-gradient-to-r from-primary/10 to-secondary/10">
-        <div className="container mx-auto text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="space-y-8"
-          >
-            <h2 className="text-4xl font-bold gradient-text">
-              Ready to Transform Your Training?
+      {/* CTA Footer Section */}
+      <section className="py-40 px-6 bg-steel relative">
+        <div className="absolute inset-0 opacity-10 steel-texture pointer-events-none" />
+        <div className="container mx-auto">
+          <div className="max-w-4xl mx-auto text-center relative z-10">
+            <h2 className="text-5xl md:text-8xl font-black mb-8 tracking-tighter uppercase leading-[0.9]">
+              LEAVE THE <br />
+              <span className="text-primary">AVERAGE.</span>
             </h2>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Join the ranks of calisthenics warriors. Your journey to mastery starts with a single sign-in.
+            <p className="text-xl text-muted-foreground mb-16 font-semibold lowercase tracking-tight">
+              your evolution into an elite athlete begins with the first pull.
             </p>
             
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-              <Button 
-                variant="cyber" 
-                size="xl" 
-                onClick={() => signIn('google')}
-                className="flex items-center gap-3"
-              >
-                <LogIn className="w-6 h-6" />
-                Begin Your Adventure
-                <ArrowRight className="w-6 h-6" />
-              </Button>
+            <Button 
+              variant="cyber" 
+              size="xl" 
+              onClick={() => signIn('google')}
+              className="w-full sm:w-auto px-16 shadow-2xl"
+            >
+              initialize profile
+            </Button>
+            
+            <div className="flex flex-wrap items-center justify-center gap-10 mt-16 text-[10px] lowercase tracking-[0.4em] font-black text-muted-foreground">
+              <span className="flex items-center gap-2"><CheckCircle className="w-4 h-4" /> physical sovereignty</span>
+              <span className="flex items-center gap-2"><CheckCircle className="w-4 h-4" /> infinite progression</span>
+              <span className="flex items-center gap-2"><CheckCircle className="w-4 h-4" /> no hardware needed</span>
             </div>
-
-            <div className="flex items-center justify-center gap-8 mt-8 text-sm text-muted-foreground">
-              <div className="flex items-center gap-2">
-                <CheckCircle className="w-4 h-4 text-secondary" />
-                Free to start
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle className="w-4 h-4 text-secondary" />
-                No equipment needed
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle className="w-4 h-4 text-secondary" />
-                Progressive training
-              </div>
-            </div>
-          </motion.div>
+          </div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="py-8 px-6 border-t border-border">
-        <div className="container mx-auto text-center">
-          <p className="text-muted-foreground">
-            Built with 💪 for calisthenics athletes everywhere
+      <footer className="py-12 px-6 border-t border-gray-300">
+        <div className="container mx-auto flex flex-col md:flex-row justify-between items-center gap-8 opacity-40">
+          <div className="flex items-center gap-2">
+            <Dumbbell className="w-4 h-4" />
+            <span className="text-[10px] tracking-[0.5em] font-black lowercase">calisthenix elite v3.0</span>
+          </div>
+          
+          <p className="text-[10px] lowercase tracking-[0.3em] font-bold">
+            forged in metal and concrete.
           </p>
-          <p className="text-sm text-muted-foreground mt-2">
-            CalistheniX v1.0.0 - The Game of Gains
-          </p>
+          
+          <div className="flex gap-8">
+             <Trophy className="w-4 h-4" />
+             <Zap className="w-4 h-4" />
+          </div>
         </div>
       </footer>
     </div>
   )
 }
+
+

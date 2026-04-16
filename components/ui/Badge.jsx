@@ -45,7 +45,7 @@ const Badge = ({
   return (
     <motion.div
       className={cn(
-        'flex flex-col items-center space-y-2',
+        'flex flex-col items-center space-y-4',
         className
       )}
       whileHover={earned ? { scale: 1.05 } : {}}
@@ -55,19 +55,18 @@ const Badge = ({
       {/* Badge Icon */}
       <motion.div
         className={cn(
-          'relative rounded-full border-2 flex items-center justify-center transition-all duration-300',
+          'relative rounded-xl border-4 flex items-center justify-center transition-all duration-300',
           sizes[size],
           earned ? [
-            rarityConfig.bg,
-            'border-current',
+            'bg-iron border-iron',
             rarityConfig.color,
-            `shadow-lg ${rarityConfig.glow}`
+            `shadow-[0_0_20px_rgba(205,127,50,0.3)] rotate-3`
           ] : [
-            'bg-muted border-muted-foreground/30 text-muted-foreground'
+            'bg-black/50 border-white/5 text-white/20'
           ]
         )}
         initial={earned ? { rotate: 0 } : {}}
-        animate={earned ? { rotate: 5 } : {}}
+        animate={earned ? { rotate: 3 } : {}}
         transition={earned ? { 
           duration: 0.6, 
           delay: 0.2,
@@ -75,31 +74,39 @@ const Badge = ({
           stiffness: 300 
         } : {}}
       >
-        <IconComponent className={cn(
-          'transition-all duration-300',
-          size === 'sm' ? 'w-4 h-4' : 
-          size === 'md' ? 'w-6 h-6' :
-          size === 'lg' ? 'w-8 h-8' : 'w-10 h-10',
-          !earned && 'opacity-30'
-        )} />
+        <div className="-rotate-3 flex flex-col items-center justify-center">
+          <IconComponent className={cn(
+            'transition-all duration-300 drop-shadow-md',
+            size === 'sm' ? 'w-4 h-4' : 
+            size === 'md' ? 'w-6 h-6' :
+            size === 'lg' ? 'w-8 h-8' : 'w-10 h-10',
+            !earned && 'opacity-30'
+          )} />
+        </div>
         
         {/* Sparkle effect for earned badges */}
         {earned && (
           <>
             <motion.div
-              className="absolute -top-1 -right-1 w-2 h-2 bg-primary rounded-full"
+              className="absolute -top-1 -right-1 w-2 h-2 bg-primary rounded-full shadow-[0_0_10px_rgba(59,130,246,0.8)]"
               animate={{ scale: [0, 1, 0], opacity: [0, 1, 0] }}
               transition={{ duration: 1.5, repeat: Infinity, delay: 0 }}
             />
             <motion.div
-              className="absolute -bottom-1 -left-1 w-1.5 h-1.5 bg-secondary rounded-full"
+              className="absolute -bottom-1 -left-1 w-1.5 h-1.5 bg-cyan-400 rounded-full shadow-[0_0_10px_rgba(34,211,238,0.8)]"
               animate={{ scale: [0, 1, 0], opacity: [0, 1, 0] }}
               transition={{ duration: 1.5, repeat: Infinity, delay: 0.5 }}
             />
             <motion.div
-              className="absolute top-1 -left-2 w-1 h-1 bg-accent rounded-full"
+              className="absolute top-1 -left-2 w-1 h-1 bg-bronze rounded-full shadow-[0_0_10px_rgba(205,127,50,0.8)]"
               animate={{ scale: [0, 1, 0], opacity: [0, 1, 0] }}
               transition={{ duration: 1.5, repeat: Infinity, delay: 1 }}
+            />
+             <motion.div
+              className="absolute inset-0 rounded-xl border border-white/10"
+              initial={{ scale: 1, opacity: 1 }}
+              animate={{ scale: 1.2, opacity: 0 }}
+              transition={{ duration: 2, ease: "easeOut", repeat: Infinity }}
             />
           </>
         )}
@@ -107,34 +114,33 @@ const Badge = ({
       
       {/* Badge Details */}
       {showDetails && (
-        <div className="text-center space-y-1">
+        <div className="text-center space-y-2">
           <h4 className={cn(
-            'font-bold',
+            'font-black italic uppercase tracking-tighter',
             textSizes[size],
-            earned ? rarityConfig.color : 'text-muted-foreground'
+            earned ? 'text-white' : 'text-white/40'
           )}>
             {name}
           </h4>
           
+          <div className={cn(
+            'text-[10px] font-black lowercase tracking-[0.2em]',
+            earned ? rarityConfig.color : 'text-white/30'
+          )}>
+            {rarityConfig.label}
+          </div>
+
           {description && (
             <p className={cn(
-              'text-muted-foreground leading-tight max-w-32',
-              textSizes[size] === 'text-xs' ? 'text-xs' : 'text-xs'
+              'text-white/50 leading-tight max-w-32 mx-auto font-bold tracking-widest lowercase text-[8px]'
             )}>
               {description}
             </p>
           )}
           
-          <div className={cn(
-            'text-xs font-mono uppercase tracking-wide',
-            earned ? rarityConfig.color : 'text-muted-foreground/50'
-          )}>
-            {rarityConfig.label}
-          </div>
-          
           {earned && earnedAt && (
-            <div className="text-xs text-muted-foreground">
-              Earned {new Date(earnedAt).toLocaleDateString()}
+            <div className="text-[10px] font-mono text-primary font-bold lowercase">
+              authorized {new Date(earnedAt).toLocaleDateString()}
             </div>
           )}
         </div>

@@ -62,17 +62,18 @@ const MissionCard = ({
       {...props}
     >
       <Card 
+        variant="iron"
         className={cn(
           'relative overflow-hidden transition-all duration-300',
-          isCompleted && 'border-secondary glow-secondary',
+          isCompleted && 'border-bronze glow-bronze',
           canComplete && !isCompleted && 'border-primary glow-primary',
-          'hover:border-opacity-80'
+          'border-white/5 hover:border-white/20'
         )}
         glow={canComplete || isCompleted}
       >
         {/* Mission Type Badge */}
         <div className={cn(
-          'absolute top-4 right-4 px-2 py-1 rounded-full text-xs font-mono uppercase tracking-wider',
+          'absolute top-4 right-4 px-2 py-1 rounded-sm text-[10px] font-black lowercase tracking-[0.3em]',
           getMissionTypeColor(mission.type)
         )}>
           {mission.type}
@@ -81,54 +82,54 @@ const MissionCard = ({
         {/* Completion Status */}
         <div className="absolute top-4 left-4">
           {isCompleted ? (
-            <CheckCircle className="w-6 h-6 text-secondary" />
+            <CheckCircle className="w-6 h-6 text-bronze" />
           ) : canComplete ? (
             <motion.div
-              className="w-6 h-6 rounded-full border-2 border-primary bg-primary/20"
+              className="w-6 h-6 rounded-full border-2 border-primary bg-primary/20 shadow-[0_0_15px_rgba(59,130,246,0.5)]"
               animate={{ scale: [1, 1.1, 1] }}
               transition={{ duration: 1.5, repeat: Infinity, type: "tween" }}
             />
           ) : (
-            <div className="w-6 h-6 rounded-full border-2 border-muted-foreground/30" />
+            <div className="w-6 h-6 rounded-full border-2 border-white/10" />
           )}
         </div>
 
         <Card.Header className="pt-12">
           <Card.Title className={cn(
-            'text-lg flex items-center gap-2',
-            isCompleted && 'text-secondary'
+            'text-2xl font-black italic uppercase tracking-tighter flex items-center gap-2',
+            isCompleted ? 'text-bronze' : 'text-white'
           )}>
             {mission.title}
             {mission.badgeReward && (
-              <Trophy className="w-4 h-4 text-yellow-400" />
+              <Trophy className="w-5 h-5 text-bronze" />
             )}
           </Card.Title>
-          <Card.Description>
+          <Card.Description className="text-white/50 text-xs tracking-wide">
             {mission.description}
           </Card.Description>
         </Card.Header>
 
-        <Card.Content className="space-y-4">
+        <Card.Content className="space-y-6">
           {/* Mission Progress */}
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span>Mission Progress</span>
-              <span className="font-mono">
+          <div className="space-y-2 bg-black/40 p-4 rounded-xl border border-white/5">
+            <div className="flex justify-between text-[10px] font-black lowercase tracking-widest text-white/40">
+              <span>mission progress</span>
+              <span className="font-mono text-primary">
                 {completedRequirements}/{totalRequirements}
               </span>
             </div>
             <Progress 
               value={completedRequirements}
               max={totalRequirements}
-              variant={isCompleted ? 'secondary' : 'primary'}
+              variant={isCompleted ? 'bronze' : 'primary'}
               animated={true}
             />
           </div>
 
           {/* Requirements List */}
           <div className="space-y-3">
-            <h4 className="text-sm font-medium flex items-center gap-2">
-              <Target className="w-4 h-4" />
+            <h4 className="text-[10px] font-black uppercase tracking-widest text-white/40 flex items-center gap-2">
+              <Target className="w-3 h-3" />
               Requirements
             </h4>
             
@@ -142,32 +143,32 @@ const MissionCard = ({
                   <motion.div
                     key={index}
                     className={cn(
-                      'flex items-center justify-between p-2 rounded-lg border',
+                      'flex items-center justify-between p-3 rounded-lg border',
                       isReqCompleted ? 
-                        'border-secondary/50 bg-secondary/10' : 
-                        'border-muted bg-muted/50'
+                        'border-bronze/50 bg-bronze/10' : 
+                        'border-white/5 bg-white/5'
                     )}
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: index * 0.1 }}
                   >
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-3">
                       {isReqCompleted ? (
-                        <CheckCircle className="w-4 h-4 text-secondary" />
+                        <CheckCircle className="w-4 h-4 text-bronze" />
                       ) : (
-                        <div className="w-4 h-4 rounded-full border-2 border-muted-foreground/30" />
+                        <div className="w-4 h-4 rounded-full border-2 border-white/20" />
                       )}
                       <span className={cn(
-                        'text-sm',
-                        isReqCompleted && 'line-through opacity-75'
+                        'text-xs font-black lowercase tracking-wider',
+                        isReqCompleted ? 'line-through text-white/50' : 'text-white'
                       )}>
-                        {req.skillName}
+                        {req.skillName} - {req.targetValue} {req.unit === 'reps' ? 'Reps' : 'Sec'} x 3 Sets
                       </span>
                     </div>
                     
                     <span className={cn(
-                      'text-xs font-mono',
-                      isReqCompleted ? 'text-secondary' : 'text-muted-foreground'
+                      'text-[10px] font-mono font-bold tracking-widest',
+                      isReqCompleted ? 'text-bronze' : 'text-primary'
                     )}>
                       {currentValue}/{req.targetValue} {req.unit}
                     </span>
@@ -178,12 +179,12 @@ const MissionCard = ({
           </div>
 
           {/* Rewards */}
-          <div className="flex items-center justify-between text-sm pt-2 border-t border-border">
-            <span className="text-muted-foreground">Rewards:</span>
+          <div className="flex items-center justify-between text-sm pt-4 border-t border-white/10">
+            <span className="text-[10px] font-black lowercase tracking-widest text-white/40">rewards:</span>
             <div className="flex items-center gap-3">
-              <span className="text-primary font-mono">+{mission.xpReward} XP</span>
+              <span className="text-bronze font-mono font-black text-lg">+{mission.xpReward} xp</span>
               {mission.badgeReward && (
-                <span className="text-yellow-400 text-xs">Badge: {mission.badgeReward}</span>
+                <span className="text-bronze text-[10px] font-black lowercase tracking-widest border border-bronze/30 px-2 py-1 rounded-sm bg-bronze/10">badge: {mission.badgeReward}</span>
               )}
             </div>
           </div>
@@ -194,12 +195,12 @@ const MissionCard = ({
             {isCompleted ? (
               <motion.div
                 key="completed"
-                className="w-full text-center text-secondary font-semibold"
+                className="w-full text-center text-bronze font-black lowercase tracking-widest text-sm"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
               >
-                ✨ Mission Completed! ✨
+                protocol authorized ✨
               </motion.div>
             ) : canComplete ? (
               <Button
@@ -207,9 +208,9 @@ const MissionCard = ({
                 variant="cyber"
                 onClick={handleComplete}
                 isLoading={isCompleting}
-                className="w-full"
+                className="w-full font-black uppercase tracking-widest italic"
               >
-                Complete Mission
+                Authorize Completion
                 <Trophy className="w-4 h-4 ml-2" />
               </Button>
             ) : isActive ? (
@@ -217,19 +218,19 @@ const MissionCard = ({
                 key="active"
                 variant="outline"
                 disabled
-                className="w-full"
+                className="w-full font-black uppercase tracking-widest border-white/10 text-white/40"
               >
-                Mission Active - Go to Skills
+                Protocol Active
                 <Target className="w-4 h-4 ml-2" />
               </Button>
             ) : onStartMission ? (
               <Button
                 key="start"
-                variant="primary"
+                variant="cyber"
                 onClick={() => onStartMission?.(mission)}
-                className="w-full"
+                className="w-full font-black uppercase tracking-widest italic"
               >
-                Start Mission
+                Initialize Protocol
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             ) : (
@@ -237,9 +238,9 @@ const MissionCard = ({
                 key="unavailable"
                 variant="outline"
                 disabled
-                className="w-full"
+                className="w-full font-black uppercase tracking-widest border-white/10 text-white/40"
               >
-                Complete Active Mission First
+                Protocol Locked
               </Button>
             )}
           </AnimatePresence>

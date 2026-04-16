@@ -1,10 +1,25 @@
 'use client'
 
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import MissionsByLevel from '@/components/MissionsByLevel'
 import AchievementsShowcase from '@/components/AchievementsShowcase'
 
 export default function MissionSystemPage() {
+  const [userMissionLevel, setUserMissionLevel] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const savedStats = localStorage.getItem('userStats')
+      if (savedStats) {
+        try {
+          const stats = JSON.parse(savedStats)
+          return stats.missionLevel || 'beginner'
+        } catch (e) {
+          console.error('Error loading user mission level:', e)
+        }
+      }
+    }
+    return 'beginner'
+  })
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       {/* Navigation */}
@@ -18,7 +33,7 @@ export default function MissionSystemPage() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-12">
         {/* Missions Section */}
         <section>
-          <MissionsByLevel />
+          <MissionsByLevel userMissionLevel={userMissionLevel} />
         </section>
 
         {/* Achievements Section */}

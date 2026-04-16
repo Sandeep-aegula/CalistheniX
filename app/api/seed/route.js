@@ -38,25 +38,32 @@ export async function POST(request) {
     // Seed all missions from missionsSystem
     let missionsCreated = 0
     for (const mission of allMissions) {
-      const missionData = {
-        title: mission.title,
-        description: mission.description,
-        level: mission.level,
-        category: mission.category,
-        difficulty: mission.difficulty,
-        emoji: mission.emoji,
-        requirements: mission.requirements,
-        xpReward: mission.xpReward,
-        xpMultiplier: mission.xpMultiplier,
-        prerequisites: mission.prerequisites || [],
-        skillsRequired: mission.skillsRequired || [],
-        type: 'weekly',
-        isActive: true
+      try {
+        const missionData = {
+          title: mission.title,
+          description: mission.description,
+          level: mission.level,
+          category: mission.category,
+          difficulty: mission.difficulty,
+          day: mission.day,
+          emoji: mission.emoji,
+          requirements: mission.requirements,
+          xpReward: mission.xpReward,
+          badgeReward: mission.badgeReward,
+          prerequisites: mission.prerequisites || [],
+          skills: mission.skills || [],
+          type: 'weekly',
+          isActive: true
+        }
+        
+        console.log(`Creating mission: ${mission.title} with category: ${mission.category}`)
+        const newMission = new Mission(missionData)
+        await newMission.save()
+        missionsCreated++
+      } catch (error) {
+        console.error(`Error creating mission ${mission.title}:`, error.message)
+        throw error // Re-throw to stop the process
       }
-      
-      const newMission = new Mission(missionData)
-      await newMission.save()
-      missionsCreated++
     }
     console.log(`✅ Created ${missionsCreated} missions from missionsSystem`)
     

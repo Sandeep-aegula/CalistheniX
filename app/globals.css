@@ -1,36 +1,45 @@
 @import "tailwindcss";
 
+@font-face {
+  font-family: 'Space Grotesk';
+  src: url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+}
+
 html {
-  color-scheme: dark;
+  color-scheme: light;
+  scroll-behavior: smooth;
 }
 
 :root {
-  --background: 216 43% 7%; /* Deep Midnight #0D1117 */
-  --foreground: 210 100% 96%; /* Off-white #F0F6FC */
+  --background: 210 17% 95%; /* Light Slate / Concrete #F1F3F4 */
+  --foreground: 222 47% 11%; /* Dark Charcoal */
   
-  --primary: 48 96% 53%; /* Light Yellow #FFC107 */
-  --primary-foreground: 216 43% 7%;
+  --primary: 217 91% 60%; /* Electric Sky Blue #3B82F6 */
+  --primary-foreground: 0 0% 100%;
   
-  --secondary: 213 22% 11%; /* Graphite #161B22 */
-  --secondary-foreground: 210 100% 96%;
+  --secondary: 210 20% 85%; /* Brushed Steel #D1D9E0 */
+  --secondary-foreground: 222 47% 11%;
   
-  --accent: 130 100% 50%; /* Matrix Green #00FF41 */
-  --accent-foreground: 216 43% 7%;
+  --accent: 30 61% 50%; /* Bronze #CD7F32 */
+  --accent-foreground: 0 0% 100%;
   
-  --destructive: 0 84% 60%;
-  --destructive-foreground: 210 100% 96%;
+  --muted: 210 15% 90%;
+  --muted-foreground: 215 16% 47%;
   
-  --muted: 213 22% 15%; /* Darker Graphite */
-  --muted-foreground: 213 13% 58%; /* Muted Grey #8B949E */
+  --card: 222 15% 12%; /* Matte Iron #1A1D23 */
+  --card-foreground: 210 20% 98%;
   
-  --card: 213 22% 11%; /* Graphite #161B22 */
-  --card-foreground: 210 100% 96%;
+  --border: 214.3 31.8% 91.4%;
+  --input: 214.3 31.8% 91.4%;
+  --ring: 217 91% 60%;
   
-  --border: 213 22% 20%; /* Light Graphite border */
-  --input: 213 22% 11%;
-  --ring: 48 96% 53%; /* Light Yellow */
+  --radius: 1.25rem;
   
-  --radius: 0.75rem;
+  /* Specific Theme Colors */
+  --iron: 222 15% 12%;
+  --bronze: 30 61% 50%;
+  --gold: 43 74% 38%;
+  --steel: 210 20% 85%;
 }
 
 @theme inline {
@@ -42,8 +51,6 @@ html {
   --color-secondary-foreground: hsl(var(--secondary-foreground));
   --color-accent: hsl(var(--accent));
   --color-accent-foreground: hsl(var(--accent-foreground));
-  --color-destructive: hsl(var(--destructive));
-  --color-destructive-foreground: hsl(var(--destructive-foreground));
   --color-muted: hsl(var(--muted));
   --color-muted-foreground: hsl(var(--muted-foreground));
   --color-card: hsl(var(--card));
@@ -51,72 +58,104 @@ html {
   --color-border: hsl(var(--border));
   --color-input: hsl(var(--input));
   --color-ring: hsl(var(--ring));
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  
+  --color-iron: hsl(var(--iron));
+  --color-bronze: hsl(var(--bronze));
+  --color-gold: hsl(var(--gold));
+  --color-steel: hsl(var(--steel));
+  
+  --font-sans: 'Space Grotesk', system-ui, sans-serif;
   --radius: var(--radius);
+  
+  --background-image-bronze-gradient: linear-gradient(to right, #CD7F32, #B8860B);
 }
 
 body {
   background: hsl(var(--background));
   color: hsl(var(--foreground));
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-sans);
   background-image: 
-    radial-gradient(circle at 1px 1px, rgba(255,255,255,0.05) 1px, transparent 0);
-  background-size: 20px 20px;
+    linear-gradient(rgba(0,0,0,0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,0,0,0.02) 1px, transparent 1px);
+  background-size: 40px 40px;
+  background-attachment: fixed;
+  min-height: 100vh;
 }
 
-/* Cyberpunk scrollbar */
+/* Brushed Metal effect */
+.steel-texture {
+  background: linear-gradient(to bottom, hsl(var(--steel)), #e2e8f0, hsl(var(--steel)));
+  position: relative;
+}
+
+.steel-texture::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.05;
+  background-image: url("https://www.transparenttextures.com/patterns/brushed-alum.png");
+  pointer-events: none;
+}
+
+/* Iron Card */
+.iron-card {
+  background: hsl(var(--iron));
+  color: white;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+}
+
+/* Bronze Progress */
+.bronze-fill {
+  background: var(--background-image-bronze-gradient);
+}
+
+/* Glass Panels (Light) */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+/* Typography Colors */
+.text-bronze { color: #CD7F32; }
+.text-gold { color: #B8860B; }
+.text-steel { color: #8e9aaf; }
+
+/* Global Animations */
+@keyframes metallic-shine {
+  from { background-position: -200% center; }
+  to { background-position: 200% center; }
+}
+
+.shine {
+  background: linear-gradient(
+    90deg, 
+    transparent 0%, 
+    rgba(255,255,255,0.1) 45%, 
+    rgba(255,255,255,0.2) 50%, 
+    rgba(255,255,255,0.1) 55%, 
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: metallic-shine 3s infinite linear;
+}
+
 ::-webkit-scrollbar {
   width: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: hsl(var(--muted));
+  background: hsl(var(--background));
 }
 
 ::-webkit-scrollbar-thumb {
-  background: hsl(var(--primary));
+  background: hsl(var(--iron) / 0.2);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--primary) / 0.8);
+  background: hsl(var(--iron) / 0.4);
 }
 
-/* Glow effects for interactive elements */
-.glow-primary {
-  box-shadow: 0 0 20px hsl(var(--primary) / 0.3);
-}
 
-.glow-secondary {
-  box-shadow: 0 0 20px hsl(var(--secondary) / 0.3);
-}
-
-/* Solid primary color text */
-.gradient-text {
-  color: hsl(var(--primary));
-  font-weight: bold;
-}
-
-/* Skill unlock animation */
-@keyframes skill-unlock {
-  0% { transform: scale(1) rotate(0deg); opacity: 0.5; }
-  25% { transform: scale(1.1) rotate(5deg); opacity: 0.8; }
-  50% { transform: scale(1.2) rotate(-5deg); opacity: 1; }
-  75% { transform: scale(1.1) rotate(3deg); }
-  100% { transform: scale(1) rotate(0deg); opacity: 1; }
-}
-
-.skill-unlock {
-  animation: skill-unlock 0.6s ease-out;
-}
-
-/* XP gain animation */
-@keyframes xp-gain {
-  0% { transform: translateY(0) scale(1); opacity: 1; }
-  100% { transform: translateY(-50px) scale(1.2); opacity: 0; }
-}
-
-.xp-gain {
-  animation: xp-gain 1s ease-out forwards;
-}

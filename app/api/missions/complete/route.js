@@ -4,7 +4,7 @@
  * and achievement unlocking
  */
 
-import { User, Mission } from '@/models'
+import { User } from '@/models'
 import dbConnect from '@/lib/mongodb'
 import {
   skillBadges,
@@ -12,6 +12,7 @@ import {
   allMissions,
   xpMultipliers
 } from '@/data/missionsSystem'
+import { initialMissions } from '@/data/gameData'
 
 export async function POST(req) {
   try {
@@ -26,19 +27,26 @@ export async function POST(req) {
       )
     }
 
-    // Fetch user and mission
+    // Fetch user from database
     const user = await User.findById(userId)
-    const mission = await Mission.findById(missionId)
+    
+    if (!user) {
+      return Response.json({ error: 'User not found' }, { status: 404 })
+    }
 
-    if (!user || !mission) {
-      return Response.json({ error: 'User or mission not found' }, { status: 404 })
+    // Find mission from static data (missions are not stored in DB)
+    const missionData = allMissions.find(m => m.id === missionId) || 
+                       initialMissions.find(m => m.id === missionId)
+    
+    if (!missionData) {
+      return Response.json({ error: 'Mission not found' }, { status: 404 })
     }
 
     // Check if mission already completed today
     const today = new Date().toDateString()
     const completedToday = user.completedMissions.find(
       (m) =>
-        m.missionId.toString() === missionId &&
+        m.missionId === missionId &&
         new Date(m.completedAt).toDateString() === today
     )
 
@@ -50,9 +58,8 @@ export async function POST(req) {
     }
 
     // Add XP with level multiplier
-    const missionData = allMissions.find(m => m.id === missionId)
-    const baseXpReward = mission.xpReward || 25
-    const multiplier = missionData ? xpMultipliers[missionData.level] || 1.0 : 1.0
+    const baseXpReward = missionData.xpReward || 25
+    const multiplier = xpMultipliers[missionData.level] || 1.0
     const xpReward = Math.floor(baseXpReward * multiplier)
     user.xp += xpReward
 

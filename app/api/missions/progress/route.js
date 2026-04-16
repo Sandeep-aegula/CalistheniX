@@ -1,4 +1,5 @@
 import dbConnect from '@/lib/mongodb'
+import { User } from '@/models'
 import { allMissions } from '@/data/missionsSystem'
 
 export async function GET(request) {
@@ -12,16 +13,11 @@ export async function GET(request) {
       return Response.json({ error: 'Missing userId' }, { status: 400 })
     }
 
-    // This would fetch from your User model
-    // For now, returning a template response
-    const mockUserData = {
-      _id: userId,
-      totalWorkouts: 0,
-      xp: 0,
-      currentStreak: 0,
-      completedMissions: [],
-      unlockedSkillBadges: [],
-      unlockedMilestones: []
+    // Fetch real user data from database
+    const user = await User.findById(userId)
+    
+    if (!user) {
+      return Response.json({ error: 'User not found' }, { status: 404 })
     }
 
     // Calculate progress
@@ -36,7 +32,7 @@ export async function GET(request) {
       leverage: 0
     }
 
-    mockUserData.completedMissions.forEach(completed => {
+    user.completedMissions.forEach(completed => {
       const mission = allMissions.find(m => m.id === completed.missionId)
       if (mission) {
         completedLevels.add(mission.level)
@@ -49,12 +45,14 @@ export async function GET(request) {
     return Response.json({
       success: true,
       progress: {
-        totalWorkouts: mockUserData.totalWorkouts,
-        totalXP: mockUserData.xp,
-        currentStreak: mockUserData.currentStreak,
-        completedMissions: mockUserData.completedMissions,
-        unlockedSkillBadges: mockUserData.unlockedSkillBadges,
-        unlockedMilestones: mockUserData.unlockedMilestones,
+        totalWorkouts: user.totalWorkouts || 0,
+        totalXP: user.xp || 0,
+        level: user.level || 1,
+        currentStreak: user.currentStreak || 0,
+        longestStreak: user.longestStreak || 0,
+        completedMissions: user.completedMissions || [],
+        skillBadges: user.skillBadges || [],
+        milestones: user.milestones || [],
         completedLevels: Array.from(completedLevels),
         categoryProgress,
         totalMissionsAvailable: allMissions.length
